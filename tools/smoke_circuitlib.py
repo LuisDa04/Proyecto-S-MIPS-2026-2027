@@ -27,8 +27,11 @@ def build_smoke():
     rows = discover_ports(root)
     puertos_and = select(rows, circuit_name='Smoke', kind='AND Gate')
     assert len(puertos_and) == 3, f'la AND deberia tener 3 puertos, tiene {len(puertos_and)}'
-    oeste = sorted([p for p in puertos_and if p['index'] < 2], key=lambda p: p['y'])
-    este = [p for p in puertos_and if p['index'] == 2][0]
+    # El indice 0 de una compuerta no es la primera entrada: filtrar por type.
+    oeste = sorted([p for p in puertos_and if p['type'] == 1], key=lambda p: p['y'])
+    este = [p for p in puertos_and if p['type'] == 2]
+    assert len(oeste) == 2 and len(este) == 1, 'roles de puertos de la AND inesperados'
+    este = este[0]
 
     # A -> AND, con un codo ortogonal
     cable(c, [coords['A'], (480, coords['A'][1]),
@@ -64,8 +67,9 @@ def test_connect_port(tmp):
     c, _ = subcircuit(root, 'Smoke', [('A', 1)], [('Y', 1)], 'Smoke')
     gate(c, 'AND Gate', (500, 180), size=30)
     rows = discover_ports(root)
-    este = [p for p in select(rows, kind='AND Gate') if p['index'] == 2][0]
-    connect_port(c, este, 'RESULT', length=30)
+    este = [p for p in select(rows, kind='AND Gate') if p['type'] == 2]
+    assert len(este) == 1, 'la AND deberia tener una unica salida'
+    connect_port(c, este[0], 'RESULT', length=30)
 
     path = tmp / 'connect.circ'
     save(root, path)

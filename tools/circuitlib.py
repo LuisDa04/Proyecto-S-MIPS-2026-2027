@@ -211,7 +211,12 @@ def discover_ports(root, timeout=180):
     """Carga el proyecto con Logisim y devuelve una lista de puertos.
 
     Cada elemento es un dict con: circuit, kind, loc, index, tip, x, y,
-    width, type, bounds. Lanza RuntimeError si Logisim no puede cargar el .circ.
+    width, type (int: 1=entrada, 2=salida, 3=tunel), bounds. Lanza
+    RuntimeError si Logisim no puede cargar el .circ.
+
+    Ojo: `type` es la direccion del puerto **del componente**, no la del pin.
+    En un Pin de entrada vale 2 y en uno de salida vale 1. Para una compuerta,
+    sus entradas valen 1 y su salida vale 2.
     """
     with tempfile.TemporaryDirectory(prefix='circuitlib-') as directory:
         stage = Path(directory) / 'stage.circ'
@@ -236,7 +241,7 @@ def discover_ports(root, timeout=180):
         x, y = map(int, xy.split(','))
         rows.append({
             'circuit': circuit_name, 'kind': kind, 'loc': loc, 'index': int(index),
-            'tip': tip, 'x': x, 'y': y, 'width': int(width), 'type': typ,
+            'tip': tip, 'x': x, 'y': y, 'width': int(width), 'type': int(typ),
             'bounds': tuple(map(int, bounds.split(','))),
         })
     return rows

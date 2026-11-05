@@ -96,6 +96,10 @@ python tools/build.py             # placa base (Board + Memory)
 python tools/gen_*.py             # circuitos de la CPU por bloque
 python tools/check_circuit.py     # invariantes antes de simular
 python tools/smoke_circuitlib.py  # prueba de humo del generador
+
+# demostracion end-to-end (genera un .circ y simula su tabla de verdad)
+python tools/gen_prueba.py
+java "-Djava.awt.headless=true" --class-path "$env:LOGISIM_JAR" tools/Verify.java circuit/prueba_generador.circ
 ```
 
 **Reglas:** un túnel por señal y ancho; nunca calcular a mano la coordenada de un puerto; extremos de cable en la rejilla de 10 px; validar cada `.circ` generado cargándolo con `Ports.java`.

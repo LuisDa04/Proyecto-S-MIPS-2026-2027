@@ -121,6 +121,31 @@ Formato sugerido por commit:
 
 ---
 
+### 2026-11-05 - Circuito de prueba generado y verificado por simulación
+
+**¿Qué se hizo?**
+- `tools/gen_prueba.py`: genera `circuit/prueba_generador.circ` con entradas `A`/`B`, compuertas `AND`/`OR`/`XOR`/`NOT` (tamaños 30/50/70/20) y salidas `AND_OUT`/`OR_OUT`/`XOR_OUT`/`NOT_OUT`, todo conectado con túneles.
+- `tools/Verify.java`: carga el `.circ` en Logisim headless, conduce `A` y `B` y comprueba la tabla de verdad real leyendo los túneles de salida.
+
+**¿Qué se probó?**
+- `java -Djava.awt.headless=true --class-path "$env:LOGISIM_JAR" tools/Verify.java circuit/prueba_generador.circ` → 4 filas OK + `TODO OK`.
+- El `.circ` carga con `Ports.java` y no contiene cables largos: cada puerto usa un túnel con nombre.
+
+**Resultados**
+- Queda demostrado el ciclo completo: describir en Python → descubrir puertos → cablear por nombre → cargar en Logisim → simular.
+
+**Problemas y soluciones**
+- En Logisim el **índice 0 de una compuerta es la salida**, no la primera entrada. Seleccionar puertos por índice producía un circuito que cargaba pero no calculaba lo esperado. Solución: filtrar por `type` (1=entrada, 2=salida) y ordenar las entradas por `y`.
+- `discover_ports` devolvía `type` como texto; ahora es `int`, y la documentación aclara que en un `Pin` la dirección del puerto es la contraria a la del pin.
+
+**¿Qué queda pendiente?**
+- Usar el mismo patrón para `Datapath`, `Control_Unit`, `Branch_Control` y `CPU`.
+
+**Decisiones de diseño**
+- El `.circ` de prueba es un artefacto de verificación, no parte de la entrega; `circuit/smips.circ` sigue intacto.
+
+---
+
 ### 2026-11-05 - Generador de circuitos Logisim (circuitlib) y verificador
 
 **¿Qué se hizo?**
@@ -251,6 +276,10 @@ bash open.sh
 # Generador de circuitos: prueba de humo y verificador
 python tools/smoke_circuitlib.py
 python tools/check_circuit.py circuit/smips.circ --base
+
+# Circuito de prueba: generar y simular su tabla de verdad en Logisim
+python tools/gen_prueba.py
+java "-Djava.awt.headless=true" --class-path "$env:LOGISIM_JAR" tools/Verify.java circuit/prueba_generador.circ
 ```
 
 **Nota:** `Logisim` serializa los pines como `input`/`output` (no `in`/`out`) y solo admite `size` 30/50/70 en compuertas de 2+ entradas (20/30 en `NOT`). Usar `circuitlib.gate()` para no generar un `.circ` que no carga.
