@@ -23,6 +23,60 @@ Registro de contexto y progreso. Debe actualizarse en cada commit con:
 | `tests/` | No existe | Pendiente (Fase 9) - R21 |
 | `informe.pdf` | No existe | Pendiente (Fase 10) - R23 |
 | `salida-tests.txt` | No existe | Pendiente (Fase 10) |
+| `docs/plan.md` | Creado | Plan en 10 fases + Fase 0 + Anexo A |
+| `docs/context.md` | Creado | Este archivo |
+
+---
+
+## Entorno Local Verificado
+
+| Herramienta | Versión / ruta | Estado | Notas |
+|---|---|---|---|
+| Java | OpenJDK 21.0.13 (Temurin) | OK | Requerido por Logisim, MARS y los scripts |
+| Logisim-Evolution | 5.0.0 (`C:\Program Files\logisim-evolution\app\logisim-evolution-5.0.0-all.jar`) | OK | `LOGISIM_JAR` |
+| MARS | 4.5 (`C:\Users\enrique\Herramientas\Mars4_5.jar`) | OK | `MARS_JAR` |
+| GHDL | 6.0.0 (`D:\EscuelaLuisi\AC\GHDL\bin\ghdl.exe`) | OK | No está en `PATH`; usar `--std=02` |
+| Questa / ModelSim | No instalado | **BLOQUEANTE** | `QUESTA_BIN` y `SALT_LICENSE_SERVER` vacíos; `vsim` no existe |
+
+**Consecuencia:** `tools/run_tests.py` no puede ejecutar circuitos con entidades VHDL (`tools/Run.java:88-92` aborta con `Questa no arranco`). GHDL valida el VHDL por separado; la cosimulación queda **diferida** hasta que haya Questa o hasta el checkpoint de la Fase 6.
+
+---
+
+## Repositorio Guía Analizado
+
+| Campo | Valor |
+|---|---|
+| URL | `https://github.com/luisiafk/Proyecto-S-MIPS-2026-2027` |
+| Commit | `57c67b6` (2026-11-04) |
+| Contenido | `circuit/REGFILE.vhd`, `circuit/smips.circ` (4036 líneas) |
+| Ausente | `tests/`, `informe.pdf`, `salida-tests.txt` |
+| Veredicto | Prototipo en progreso; no es entrega ni solución validada |
+| Uso | Referencia de intención; **no copiar** |
+
+**Reutilizable:** conjunto de señales de control, registros intermedios PC/IR/A/B/ALUOUT/MDR, ecuación de `Branch_Control`, tabla de opcodes/functs, codificación ALU de 3 bits y el `register_file` VHDL (validado con GHDL 6.0.0 `--std=02 --warn-all`).
+
+**Defectos bloqueantes detectados:**
+- ROM dentro de la CPU (R17) en el subcircuito `Decoder`, instanciado en `Datapath`.
+- `Datapath` instancia `Memory` (R13/R17): hay dos RAM y la imagen cargada en `Board` no se usa.
+- Nombres R16 incorrectos: `FSM`, `BranchControl`, `register_file`.
+- `Datapath` sin `RESET`; el `rst` de `register_file` queda sin conectar (R6).
+- `Control_Unit`/`FSM` sin `TTY_WE` ni `HALT`; `HALT` cableado directo a `Illegal`; sin `syscall` 10/11 (R4/R10).
+- `jal`/`jr` incompletos: un solo `IsJ`, sin `$31`, sin PC+4 en writeback, sin `rs`→PC.
+- Sin fuente PC+4 ni desplazamiento de `lui`.
+
+Detalle completo y evidencia en `docs/plan.md`, Anexo A.
+
+---
+
+## Riesgos Activos
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Questa no instalado | No se puede validar la integración VHDL con `run_tests.py` | GHDL + testbench espejo; checkpoint Fase 6; contingencia 100 % Logisim |
+| R16 (nombres) y R17 (RAM/ROM) | No evaluable / bloqueante | Revisión en Fase 1 y Fase 6; sin ROM para FSM ni ALU |
+| Límite de 60 000 ciclos | Programas largos abortan | 3-5 ciclos por instrucción; medir en Fase 8 |
+| Carriles de byte (`lb`/`lbu`/`sb`) | Salida distinta a MARS | Pruebas dedicadas en Fase 7 y Fase 9 |
+| Reset no cableado | `$gp`/`$sp` incorrectos | Puerto `RESET` en `Datapath`; prueba en Fase 7 |
 
 ---
 
@@ -35,6 +89,8 @@ Registro de contexto y progreso. Debe actualizarse en cada commit con:
 | Reset | Pendiente (asíncrono o síncrono) | R6 permite cualquiera |
 | Máquina de estados | Pendiente (Moore o Mealy) | R15 permite cualquiera |
 | Estados de control | Pendiente | Definir en Fase 1 |
+| Verificación VHDL | GHDL local + Questa diferida | No hay Questa instalado; GHDL valida compilación y testbenches |
+| Contingencia VHDL | Sustituir por circuitos Logisim | R18 permite cero VHDL si la integración no se puede validar |
 
 ---
 
@@ -65,7 +121,32 @@ Formato sugerido por commit:
 
 ---
 
-### (Vacío - primera entrada por hacer al primer commit de implementación)
+### 2026-11-05 - Actualización del plan y del contexto (pre-implementación)
+
+**¿Qué se hizo?**
+- Análisis completo del repo guía `luisiafk/Proyecto-S-MIPS-2026-2027` (commit `57c67b6`).
+- Se añadió la Fase 0 (entorno y contrato Logisim↔VHDL) y el Anexo A al plan.
+- Se reforzaron las fases 1, 2, 3, 4, 5, 7 y 8 con las trampas detectadas en el repo guía.
+- Se registraron entorno, riesgos y decisiones en este archivo.
+
+**¿Qué se probó?**
+- GHDL 6.0.0 `--std=02 --warn-all` sobre el `register_file` VHDL del repo guía: compila y elabora sin errores ni avisos.
+- Testbench propio: reset, `$gp=0x1800`, `$sp=0x3FFC`, `$zero` protegido, escritura/lectura → `TB_OK`.
+- Entorno: Java 21, Logisim 5.0.0 y MARS 4.5 presentes; Questa ausente.
+
+**Resultados**
+- El VHDL de referencia es válido; la integración con Logisim no se puede verificar localmente por falta de Questa.
+
+**¿Qué queda pendiente?**
+- Fase 0: capturar el wrapper/testbench que genera Logisim.
+- Fases 1-10 según `docs/plan.md`.
+
+**Problemas y soluciones**
+- Sin Questa: se adopta GHDL + testbench espejo y validación diferida; contingencia 100 % Logisim en el checkpoint de la Fase 6.
+
+**Decisiones de diseño**
+- VHDL para `Register_File` e `Instruction_Decoder`; `ALU` nativa en Logisim.
+- Nombres exactos R16 desde el inicio; sin RAM/ROM dentro de la CPU.
 
 ---
 
@@ -73,8 +154,8 @@ Formato sugerido por commit:
 
 | Req | Descripción | Estado | Evidencia |
 |-----|-------------|--------|-----------|
-| R1 | CPU en smips.circ, Logisim 5.0.0 | Pendiente | |
-| R2 | No modificar Board/Memory/pines CPU | Pendiente | |
+| R1 | CPU en smips.circ, Logisim 5.0.0 | Pendiente | Logisim 5.0.0 + Java 21 verificados (Fase 0) |
+| R2 | No modificar Board/Memory/pines CPU | Pendiente | Regla activa; comprobar en cada commit |
 | R3 | Secuenciales en flanco CLK, sin relojes derivados | Pendiente | |
 | R4 | TTY_WE = 1 un ciclo por carácter | Pendiente | |
 | R5 | MEM_WE = 1 solo en sw/sb | Pendiente | |
@@ -90,9 +171,9 @@ Formato sugerido por commit:
 | R15 | Control_Unit = máquina de estados síncrona | Pendiente | |
 | R16 | 6 subcircuitos con nombres exactos | Pendiente | |
 | R17 | Sin RAM/ROM en CPU | Pendiente | |
-| R18 | Máx 2 VHDL de 3 permitidos | Pendiente | |
-| R19 | VHDL puertos std_logic, sin generics | Pendiente | |
-| R20 | VHDL sintetizable, sin wait/after | Pendiente | |
+| R18 | Máx 2 VHDL de 3 permitidos | Decidido | `Register_File` + `Instruction_Decoder`; `ALU` nativa |
+| R19 | VHDL puertos std_logic, sin generics | Pendiente | GHDL 6.0.0 listo; `register_file` de referencia compila sin avisos |
+| R20 | VHDL sintetizable, sin wait/after | Pendiente | Reglas conservadoras en plan, Fase 2 |
 | R21 | tests/ cubriendo tabla de casos | Pendiente | |
 | R22 | Repo GitHub por Telegram | Pendiente | |
 | R23 | smips.circ, .vhd, informe.pdf, tests/, salida-tests.txt | Pendiente | |
@@ -101,29 +182,39 @@ Formato sugerido por commit:
 
 ## Próximos Pasos Inmediatos
 
-1. Crear `docs/plan.md` (este plan).
-2. Fase 1: Diseño y especificación de arquitectura.
-3. Fase 2: Implementar `register_file.vhd`.
-4. Fase 3: Implementar `instruction_decoder.vhd`.
-5. Fase 4-6: Implementar Datapath, Control_Unit, Branch_Control, integración CPU en Logisim.
-6. Fase 7-8: Testeo modular y general con run_tests.py.
-7. Fase 9: Crear `tests/` propios cubriendo R21.
-8. Fase 10: Informe, salida-tests.txt, entrega en GitHub.
+**Estado:** plan y contexto creados y commiteados. El siguiente hito es la Fase 0.
+
+1. Fase 0: verificar entorno, capturar el wrapper/testbench de Logisim y documentar el contrato Logisim↔VHDL.
+2. Fase 1: diseño, tabla de estados y matriz de trazabilidad R1–R23.
+3. Fase 2: implementar `register_file.vhd` + testbench funcional + testbench espejo (GHDL).
+4. Fase 3: implementar `instruction_decoder.vhd` + modelo de referencia en Python (GHDL).
+5. Fase 4-6: Datapath, Control_Unit, Branch_Control e integración CPU en Logisim; **checkpoint** de integración VHDL.
+6. Fase 7-8: testeo modular y general.
+7. Fase 9: crear `tests/` propios cubriendo R21.
+8. Fase 10: informe, `salida-tests.txt`, entrega en GitHub.
 
 ---
 
 ## Comandos de Referencia
 
-```bash
+```powershell
+# Variables de entorno (PowerShell)
+$env:LOGISIM_JAR = "C:\Program Files\logisim-evolution\app\logisim-evolution-5.0.0-all.jar"
+$env:MARS_JAR    = "C:\Users\enrique\Herramientas\Mars4_5.jar"
+
 # Ensamblar un programa
-python3 tools/assemble.py programs/hello.asm
+python tools/assemble.py programs/hello.asm
 
 # Ejecutar batería de pruebas completa
-python3 tools/run_tests.py
+python tools/run_tests.py
 
 # Ejecutar un solo programa
-python3 tools/run_tests.py programs/memory.asm
+python tools/run_tests.py programs/memory.asm
 
-# Abrir circuito en Logisim
+# Validar VHDL con GHDL (no sustituye a Questa)
+D:\EscuelaLuisi\AC\GHDL\bin\ghdl.exe -a --std=02 --warn-all register_file.vhd
+D:\EscuelaLuisi\AC\GHDL\bin\ghdl.exe -e --std=02 register_file
+
+# Abrir circuito en Logisim (Git Bash)
 bash open.sh
 ```

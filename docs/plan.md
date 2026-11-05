@@ -77,9 +77,34 @@ Se implementan en VHDL:
 Se implementa en Logisim nativo:
 3. **ALU** — Logisim trae componentes aritméticos nativos; una sola instancia.
 
+**Verificación local:** GHDL 6.0.0 (`--std=02 --warn-all`) para cada entidad y un testbench espejo del wrapper de Logisim. La cosimulación con Questa queda **diferida** (ver Fase 0 y Fase 8); no se considera validada la integración hasta que `run_tests.py` complete con éxito.
+
 ---
 
 ## Fases Modulares de Implementación
+
+### Fase 0: Entorno, línea base y contrato Logisim↔VHDL
+
+**Objetivo:** Dejar el entorno reproducible y fijar el contrato exacto entre Logisim y las entidades VHDL antes de escribir código.
+
+**Contexto:** Logisim-Evolution 5.0.0 no usa GHDL para las entidades VHDL: lanza Questa/ModelSim (`vsim`) y espera su socket. En este equipo no hay Questa, así que GHDL 6.0.0 se usa para verificar el VHDL por separado y la validación de integración queda **diferida** hasta que exista Questa o hasta el checkpoint de la Fase 6. Esta decisión está registrada en `docs/context.md`.
+
+**Entregables:**
+- Tabla de herramientas verificadas (versión, ruta, variable de entorno).
+- Wrapper y testbench que genera Logisim para una entidad VHDL, guardados como referencia.
+- Comando único de prueba de humo.
+
+**Tareas:**
+0.1 Verificar Java 21, Logisim 5.0.0 (`LOGISIM_JAR`), MARS (`MARS_JAR`) y GHDL 6.0.0 (`--std=02`).
+0.2 Confirmar ausencia/presencia de Questa: `QUESTA_BIN`, `SALT_LICENSE_SERVER`, `where vsim`.
+0.3 Copiar `circuit/smips.circ` a un archivo temporal (nunca modificar el original, R2), añadir una entidad VHDL mínima, ejecutar `tools/run_tests.py` y **capturar el wrapper y el testbench generados** antes de que falle por falta de Questa.
+0.4 Documentar el contrato: nombres de puertos, tipos, cómo se conduce el reloj, reset y orden de instanciación.
+0.5 Ejecutar `python tools/run_tests.py` con la CPU vacía y registrar el fallo esperado (línea base).
+0.6 Ajustar los comandos a Windows (`python` en lugar de `python3`, rutas con `\`, variables de entorno).
+
+**Criterio de salida:** Entorno documentado y contrato Logisim↔VHDL escrito; se sabe exactamente qué wrapper espera Questa. Si en cualquier momento se instala Questa, se repite 0.3 y se habilita la validación completa sin cambiar el VHDL.
+
+---
 
 ### Fase 1: Análisis y Diseño (Especificación)
 
@@ -91,6 +116,7 @@ Se implementa en Logisim nativo:
 - Tabla de señales de control por estado.
 - Codificación de operaciones de ALU y salidas del decodificador.
 - Número de ciclos por clase de instrucción.
+- Matriz de trazabilidad R1–R23 → elemento del diseño → evidencia de prueba.
 
 **Tareas:**
 1.1 Leer `docs/guide.tex` completo y extraer todos los requisitos R1-R23.
@@ -100,8 +126,12 @@ Se implementa en Logisim nativo:
 1.5 Especificar interface de `Instruction_Decoder` (entradas OP/FUNCT, salidas de control).
 1.6 Especificar interface de `Register_File` VHDL (CLK, RESET, RS1, RS2, RD, WD, REG_WRITE, RD1, RD2).
 1.7 Revisión cruzada del diseño contra R3-R20.
+1.8 Construir la matriz de trazabilidad R1–R23 (requisito → componente/señal → prueba que lo evidencia).
+1.9 Escribir la tabla de estados explícita: estado actual → salidas → condición de transición → estado siguiente.
+1.10 Fijar la lista completa de señales de control, incluida `BE` (4 bits), `TTY_WE` y `HALT`, y quién las genera.
+1.11 Definir la convención de nombres de túneles y etiquetas (una señal, un nombre, en toda la jerarquía).
 
-**Criterio de salida:** Documento de diseño aprobado (puede ser parte del informe final).
+**Criterio de salida:** Documento de diseño aprobado (puede ser parte del informe final) y matriz de trazabilidad completa.
 
 ---
 
@@ -110,6 +140,8 @@ Se implementa en Logisim nativo:
 **Objetivo:** Banco de registros de 32×32 bits con dos puertos de lectura combinacional y un puerto de escritura en flanco de subida.
 
 **Archivo:** `circuit/register_file.vhd`
+
+**Contrato de nombres (R16/R19):** la entidad VHDL se llama `register_file` (VHDL no distingue mayúsculas), pero el subcircuito de Logisim debe llamarse exactamente `Register_File`. Los nombres y tipos de los puertos se fijan en la Fase 0 y **no se cambian después**.
 
 **Especificación técnica:**
 
@@ -137,12 +169,18 @@ end entity;
 - Reset (asíncrono o síncrono): todos los registros a 0 excepto $zero que es 0 por definición.
 - Valores iniciales: $gp (registro 28) = 0x1800, $sp (registro 29) = 0x3FFC, resto 0.
 
+**Reglas VHDL conservadoras (para minimizar diferencias GHDL/Questa):**
+- VHDL-2002 estricto; solo `ieee.std_logic_1164` y `ieee.numeric_std` (R19).
+- Sin valores iniciales en señales, sin `wait`, sin `after`, sin ficheros (R20).
+- Reset síncrono explícito en el mismo `process` del flanco, o asíncrono en la lista de sensibilidad; documentar cuál se elige.
+- `$zero` protegido también en escritura, no solo en lectura.
+
 **Tareas:**
 2.1 Escribir `register_file.vhd` cumpliendo R17, R19, R20.
-2.2 Verificar compilación VHDL-2002 sin avisos.
-2.3 Crear testbench VHDL para verificar lecturas/escrituras y $zero.
-2.4 Integrar en Logisim como entidad VHDL (Proyecto → Añadir entidad VHDL).
-2.5 Probar isoladamente en Logisim con estímulos manuales.
+2.2 Verificar compilación VHDL-2002 sin avisos: `ghdl -a --std=02 --warn-all register_file.vhd`.
+2.3 Crear testbench funcional (32 registros, `$zero`, reset, dos lecturas simultáneas) y testbench **espejo** que replique el wrapper de Logisim capturado en la Fase 0.
+2.4 Integrar en Logisim como entidad VHDL (Proyecto → Añadir entidad VHDL) y comprobar que los pines coinciden con el contrato.
+2.5 Probar aisladamente en Logisim con estímulos manuales (sin ejecutar la CPU completa).
 
 ---
 
@@ -154,16 +192,18 @@ end entity;
 
 **Entradas:** `OP` (5 downto 0), `FUNCT` (5 downto 0).
 
-**Salidas sugeridas (ajustables al diseño):**
+**Salidas obligatorias (corrigen los defectos detectados en el repo guía):**
 - `ILLEGAL` : std_logic — instrucción no en tabla (R10).
 - `IS_RTYPE`, `IS_ITYPE`, `IS_JTYPE` : clasificación.
-- `ALU_OP` : codificación de operación ALU (add, sub, and, or, slt, sll, srl, lui, addi, etc.)
+- `ALU_OP` : codificación de operación ALU (add, sub, and, or, slt, sll, srl, lui, addi, etc.).
 - `EXT_TYPE` : sign-extend vs zero-extend para inmediato.
-- `MEM_READ`, `MEM_WRITE`, `MEM_BYTE` : tipo de acceso memoria.
-- `BRANCH_TYPE` : beq, bne, none.
-- `JUMP_TYPE` : j, jal, jr, none.
+- `MEM_READ`, `MEM_WRITE` : acceso a memoria.
+- `MEM_SIZE` : 2 bits — word / byte (para `lw`/`sw` vs `lb`/`lbu`/`sb`).
+- `BRANCH_TYPE` : 2 bits — none / beq / bne.
+- `JUMP_TYPE` : 2 bits — none / j / jal / jr (**no** fusionar en un único `IsJump`).
 - `REG_WRITE_ENABLE` : escritura a registro.
-- `REG_DST` : destino es rd (R) o rt (I).
+- `REG_DST` : 2 bits — rd (R) / rt (I) / $31 (`jal`).
+- `MEM_TO_REG` : 2 bits — ALU / MDR / PC+4 (`jal`).
 - `SYS_CALL` : es syscall.
 - `LUI_OP` : es lui (carga inmediata en bits altos).
 
@@ -172,13 +212,15 @@ end entity;
 - `op=0` → mirar `funct`; `op≠0` → mirar solo `op` (R11).
 - Detectar ilegal: par (op, funct) no en tabla → `ILLEGAL='1'` (R10).
 - `0x00000000` (op=0, funct=0) = `sll $zero,$zero,0` = NOP legal.
+- `jal` debe distinguirse de `j` y `jr`; `jr` debe poder llevar `rs` al PC.
 
 **Tareas:**
 3.1 Escribir `instruction_decoder.vhd` cumpliendo R19, R20.
 3.2 Mapear todas las 25 instrucciones (23 S-MIPS + addu + addiu).
-3.3 Crear testbench VHDL con vectores de prueba para cada instrucción.
-3.4 Integrar en Logisim como entidad VHDL.
-3.5 Probar isoladamente en Logisim.
+3.3 Crear un **modelo de referencia en Python** con la tabla de `guide.tex` y comparar exhaustivamente las 2^12 combinaciones (op, funct) contra el VHDL (GHDL) o contra los vectores generados.
+3.4 Crear testbench VHDL con vectores de prueba para cada instrucción y para cada caso ilegal.
+3.5 Integrar en Logisim como entidad VHDL y comprobar el contrato de puertos.
+3.6 Probar aisladamente en Logisim.
 
 ---
 
@@ -203,12 +245,23 @@ end entity;
 - Dirección de memoria (lw/sw/lb/lbu/sb) se calcula con la ALU: `RS1 + SignExt(imm)`.
 - Destino de salto (j/jal/jr/branch) se calcula con la ALU o lógica derivada.
 
+**Trampas obligatorias (todas detectadas en el repo guía y todas bloqueantes):**
+- **Sin `Memory` dentro del `Datapath`.** La CPU recibe `MEM_RDATA` por su pin y devuelve `MEM_ADDR`/`MEM_WDATA`/`MEM_BE`/`MEM_WE`; la única RAM es la de `Board` (R13/R17).
+- **Puerto `RESET` en el `Datapath`** y cableado hasta el `Register_File`; sin él no se inicializan `$gp`, `$sp` ni el resto (R6).
+- **Fuente PC+4** para `jal`: la ALU debe poder sumar PC+4 y ese valor debe llegar al mux de writeback.
+- **Camino `$31`**: `REG_DST` debe poder seleccionar el registro 31 para `jal`.
+- **Camino `jr`**: la dirección de `rs` debe poder llegar al PC.
+- **Desplazamiento de `lui`**: `imm << 16` antes de entrar a la ALU o al writeback.
+- **Carriles de byte** para `lb`/`lbu`/`sb` según `MEM_ADDR[1:0]`, con `MEM_BE` de 4 bits.
+- **Nada de ROM** para decodificar la ALU ni para la FSM: R17 prohíbe RAM y ROM dentro de la CPU.
+
 **Tareas:**
 4.1 Dibujar `Datapath` en Logisim con PC, IR, muxes, extensión, alineación.
 4.2 Instanciar `Register_File` (VHDL) y `ALU` (Logisim nativo).
 4.3 Conectar señales de control (pendiente de Control_Unit, usar túneles temporales).
 4.4 Verificar que no haya RAM/ROM dentro de CPU (R17).
 4.5 Verificar que todos los elementos secuenciales usen CLK directo (R3).
+4.6 Verificar una a una las trampas anteriores antes de pasar a la Fase 5.
 
 ---
 
@@ -217,10 +270,18 @@ end entity;
 **Objetivo:** Máquina de estados que genera señales de control, y lógica de decisión de escritura PC.
 
 **Control_Unit (R15):**
-- Máquina de estados síncrona con biestables/registros.
-- Entradas: CLK, RESET, estado actual, salidas de `Instruction_Decoder`.
-- Salidas: señales de control a Datapath, `MEM_WE`, `TTY_WE`, `HALT`.
-- Puede ser Moore o Mealy.
+- Máquina de estados síncrona con biestables/registros; el estado es **interno**, no una entrada.
+- Entradas: CLK, RESET, salidas de `Instruction_Decoder`, `Zero` de la ALU.
+- Salidas: señales de control a Datapath (`PCwr`, `IRwr`, `Regwr`, `Awr`, `Bwr`, `ALUwr`, `MDRwr`, `IorD`, `RegDst`, `MemToReg`, `ALUSrcA`, `ALUSrcB`, `ALUOP`), `MEM_WE`, `MEM_BE` (si no se genera en el Datapath), `TTY_WE` y `HALT`.
+- Puede ser Moore o Mealy, pero la tabla de estados debe ser explícita y auditable.
+
+**Reglas de salida (R4/R5/R10):**
+- `HALT=1` **solo** por instrucción ilegal o por `syscall 10`; nunca cableado directamente a `Illegal` sin pasar por la FSM.
+- `TTY_WE=1` durante **exactamente un** flanco por carácter (`syscall 11`), y 0 en cualquier otro ciclo.
+- `MEM_WE=1` **solo** en el ciclo de escritura de `sw`/`sb` (R5).
+- `MEM_WE`, `TTY_WE` y `HALT` valen 0 mientras `RESET=1` (R6).
+
+**Implementación del próximo estado:** tabla explícita (estado actual × condición → estado siguiente) construida con puertas, muxes y decodificadores. **Prohibido usar ROM** (R17). La tabla se copia tal cual al informe.
 
 **Estados sugeridos (mínimo funcional):**
 1. `FETCH` — leer instrucción de MEM en PC, guardar en IR.
@@ -243,8 +304,11 @@ end entity;
 5.2 Implementar `Control_Unit` en Logisim con registros de estado.
 5.3 Implementar `Branch_Control` combinacional.
 5.4 Conectar `Control_Unit` → Datapath, `Branch_Control` → PC.
-5.5 Generar `MEM_WE`, `TTY_WE`, `HALT` según R4, R5.
-5.6 Manejar `RESET` según R6.
+5.5 Generar `MEM_WE`, `TTY_WE`, `HALT` según R4, R5, R10.
+5.6 Manejar `RESET` según R6 y comprobar que las tres salidas valen 0 durante el reset.
+5.7 Documentar la tabla de estados completa (estado → salidas → transición) y volcarla al informe.
+5.8 Verificar con simulación que `TTY_WE` dura exactamente un ciclo y que `HALT` solo se activa en los dos casos permitidos.
+5.9 Verificar que `syscall 10` detiene la CPU y `syscall 11` imprime, sin afectar al PC de forma incorrecta.
 
 ---
 
@@ -280,11 +344,15 @@ end entity;
 - Verificar $zero siempre 0 aunque se intente escribir.
 - Verificar reset inicializa $gp=0x1800, $sp=0x3FFC.
 - Verificar dos lecturas simultáneas independientes.
+- **Testbench espejo** con el wrapper exacto de Logisim (Fase 0): mismos puertos, mismo reloj, mismo reset.
+- Compilar con `ghdl -a --std=02 --warn-all` sin errores **ni avisos**.
 
 **7.2 Instruction_Decoder (VHDL)**
 - Vector de pruebas para cada una de las 25 instrucciones.
 - Verificar `ILLEGAL='1'` para opcodes/functs no en tabla.
 - Verificar `0x00000000` decodifica como NOP legal.
+- Comparación exhaustiva de las 2^12 combinaciones (op, funct) contra el modelo Python de referencia.
+- Verificar por separado `j` / `jal` / `jr`, `REG_DST=$31`, `MEM_TO_REG=PC+4` y `MEM_SIZE` byte/word.
 
 **7.3 ALU (Logisim)**
 - Probar cada operación con valores conocidos.
@@ -300,6 +368,11 @@ end entity;
 
 **7.6 Branch_Control (Logisim)**
 - Verificar PC_WRITE para beq tomado/no tomado, bne, j, jal, jr.
+
+**7.7 Prueba de humo de integración**
+- Con la CPU ya cableada, ejecutar solo `programs/hello.asm` antes de la batería completa.
+- Si falla, aislar por capas: pines de CPU → `Control_Unit` → `Datapath` → memoria.
+- Registrar el resultado en `docs/context.md` como primer hito de integración.
 
 ---
 
@@ -319,6 +392,14 @@ end entity;
 python3 tools/run_tests.py
 ```
 
+**Validación diferida (mientras no haya Questa):** `run_tests.py` abortará con `Questa no arranco` en cuanto detecte entidades VHDL (`tools/Run.java:88-92`). En ese escenario la verificación se hace por capas: GHDL para el VHDL, simulación manual en Logisim para el cableado y revisión del wrapper capturado en la Fase 0. `run_tests.py` queda como puerta final, no como criterio diario.
+
+**Diagnóstico de `Questa no arranco`:**
+1. `QUESTA_BIN` debe apuntar a la carpeta `bin` que contiene `vsim` (y `vcom`).
+2. Comprobar licencia: `SALT_LICENSE_SERVER` o fichero de licencia local.
+3. Revisar la consola de Logisim: puede haber un error de compilación VHDL antes del timeout, no solo un fallo de arranque.
+4. Verificar que la entidad y los puertos coinciden con el wrapper de la Fase 0 (nombres y tipos).
+
 **Criterio de éxito:** 100% programas OK, detenido=true, salida TTY idéntica a MARS, <60,000 ciclos.
 
 **Depuración si falla:**
@@ -326,6 +407,7 @@ python3 tools/run_tests.py
 2. Revisar `MEM_ADDR final` → último PC antes de parar.
 3. Comparar TTY obtenido vs esperado línea por línea.
 4. Revisar ciclos: si cerca de 60,000, optimizar estados (menos ciclos por instrucción).
+5. Si el TTY está vacío pero `detenido=true`, revisar `syscall 11`, `TTY_DATA` y `TTY_WE`.
 
 ---
 
@@ -414,7 +496,8 @@ python3 tools/run_tests.py
 | R2 | NUNCA tocar Board/Memory ni apariencia/pines de CPU. |
 | R3 | Solo flanco de subida CLK; sin relojes derivados. |
 | R14 | Una sola ALU; PC+4 y direcciones usan la ALU. |
-| R17 | Sin RAM/ROM en CPU; Register_File con registros+muxes. |
+| R16 | Nombres exactos: `Instruction_Decoder`, `Control_Unit`, `Branch_Control`, `Datapath`, `Register_File`, `ALU`. |
+| R17 | Sin RAM/ROM en CPU; Register_File con registros+muxes; tampoco ROM para la FSM. |
 | R18 | Máx 2 VHDL (elegidos: Register_File + Instruction_Decoder). |
 | R21 | tests/ debe cubrir TODAS las filas de la tabla de casos. |
 | run_tests.py | 60,000 ciclos límite; salida TTY debe coincidir con MARS. |
@@ -425,7 +508,7 @@ python3 tools/run_tests.py
 
 1. **Usar túneles nombrados** dentro de CPU para evitar cableado espagueti (recomendado en FAQ de guide.tex).
 2. **Documentar cada señal** con texto explicativo en Logisim (criterio "Claridad del circuito", 10% de evaluación).
-3. **No usar VHDL si no es necesario** — evita dependencia de Questa y licencia; simplifica run_tests.py.
+3. **VHDL solo con Questa disponible o con aceptación explícita del riesgo** — sin Questa no se puede ejecutar `run_tests.py`; GHDL valida el VHDL pero no la cosimulación. Si no se instala Questa, el checkpoint de la Fase 6 decide entre continuar con VHDL o sustituirlo por circuitos Logisim.
 4. **Estados de control simples** — menos estados = menos ciclos = menos riesgo de timeout en 60,000 ciclos.
 5. **Mantener $zero hardwired** en Register_File VHDL (entrada RD="00000" no escribe, lecturas de RS=0 devuelven 0).
 6. **Byte alignment para sb/lb/lbu** — usar splitter en MEM_ADDR[1:0] para seleccionar carril de byte; es el error más común.
@@ -433,6 +516,50 @@ python3 tools/run_tests.py
 8. **Declarar errores conocidos en el informe** — un error declarado se penaliza menos que uno oculto (guide.tex).
 9. **Probar tests/ antes de entregar** — cada programa de tests/ debe pasar run_tests.py individualmente.
 10. **Versión Java 21** — requerida por run_tests.py y assemble.py.
+11. **Nombres exactos R16 desde el primer día** — `Control_Unit`, `Branch_Control`, `Register_File`, `Datapath`, `Instruction_Decoder`, `ALU`. Renombrar al final suele romper cables y apariencias.
+12. **Ninguna RAM/ROM dentro de la CPU (R17)** — ni para el decodificador de ALU ni para la tabla de la FSM; usar puertas, muxes y decodificadores.
+13. **Checkpoint de la Fase 6** — si la integración VHDL no se puede verificar, activar el plan de contingencia (sustituir las dos entidades por circuitos Logisim) antes de invertir tiempo en la Fase 8.
+
+---
+
+## Anexo A: Análisis del Repositorio Guía
+
+**Repositorio:** `https://github.com/luisiafk/Proyecto-S-MIPS-2026-2027`
+**Commit analizado:** `57c67b6` (2026-11-04), *"implementacion del decoder, y volviendo a hacer la FSM"*.
+**Contenido:** 8 commits (7 de implementación); solo añade `circuit/REGFILE.vhd` y `circuit/smips.circ`. **No** tiene `tests/`, `informe.pdf` ni `salida-tests.txt`: no es una entrega ni una solución validada.
+
+**Regla de uso:** referencia de intención y estructura, **nunca fuente de código para copiar**.
+
+### A.1 Reutilizable
+
+| Elemento | Uso propuesto |
+|---|---|
+| Conjunto de señales de control (`PCwr, IRwr, Regwr, Awr, Bwr, ALUwr, MDRwr, IorD, RegDst, MemToReg, ALUSrcA, ALUSrcB, MemWrite, PcwrCond, ALUOP`) | Punto de partida; añadir `BE`, `TTY_WE`, `HALT` |
+| Registros intermedios PC / IR / A / B / ALUOUT / MDR | Adoptar (R13) |
+| `WE = Pcwr ∧ ((IsBeq ∧ Zero) ∨ (IsBne ∧ ¬Zero))` | Adoptar en `Branch_Control` (R14) |
+| Tabla de opcodes/functs del `Instruction_Decoder` | Adoptar y verificar fila por fila contra `guide.tex` |
+| Codificación ALU de 3 bits (000 add … 110 srl) | Adoptar y documentar |
+| `register_file` VHDL | Base reutilizable: GHDL 6.0.0 `--std=02 --warn-all` sin errores ni avisos; testbench propio pasa (reset, `$gp=0x1800`, `$sp=0x3FFC`, `$zero` protegido, escritura/lectura) |
+
+### A.2 Defectos que no deben repetirse
+
+| # | Hallazgo | Evidencia en `smips.circ` | Severidad | Medida correctiva |
+|---|---|---|---|---|
+| 1 | ROM dentro de la CPU (R17): el subcircuito `Decoder` usa una ROM 8×3 y se instancia en `Datapath` | ROM en línea 1304; instancia en 2045 | Bloqueante | Decodificar la ALU con puertas/muxes o dentro del `Instruction_Decoder` VHDL |
+| 2 | Dos memorias (R13/R17): `Datapath` instancia `Memory` (RAM 4096×32) igual que `Board` | `<comp ... name="Memory"/>` en 2044 | Bloqueante | Quitar `Memory` del `Datapath`; usar `MEM_RDATA` de la CPU |
+| 3 | Nombres R16 incorrectos: `FSM`, `BranchControl`, `register_file` | 436-439, 2043 | Bloqueante (admisión) | `Control_Unit`, `Branch_Control`, `Register_File` |
+| 4 | Reset no llega al banco de registros (R6): `Datapath` sin `RESET`/`rst`; `rst` de `register_file` sin conectar | 1457; bloque 1325-2214 | Bloqueante | Puerto `RESET` en `Datapath` y cableado a `Register_File` |
+| 5 | `TTY_WE`, `HALT` y `syscall` 10/11 no existen en la FSM (R4/R10): `HALT` cableado directo a `Illegal`; `TTY_DATA`/`TTY_WE` sin conectar | etiquetas de `FSM` 2359-3044 | Bloqueante | Generar las tres señales en `Control_Unit` |
+| 6 | `jal`/`jr` incompletos: un solo `IsJ` en la FSM; sin `$31` en `RegDst`; sin PC+4 en writeback; sin camino `rs`→PC | 2905, 2933, 2985 | Bloqueante | Separar `j`/`jal`/`jr`; `RegDst` y `MemToReg` de 2 bits |
+| 7 | PC+4 y `lui` sin camino: no hay fuente PC+4 ni desplazamiento; único `Constant` del `Datapath` = `0x100` | 1457 | Bloqueante | Añadir fuente PC+4 y desplazamiento `imm << 16` |
+| 8 | FSM inauditable: próximo estado con registro de 4 bits + decoder 4→16 y puertas sin documentar (S0-S15) | 3045 y siguientes | Alta (claridad, 10 %) | Tabla de estados explícita y documentada |
+| 9 | ALU con pin `CLK` sin uso; nombres `InOp`/`ALUOP`/`OP` ambiguos | 707-716 | Menor | Eliminar `CLK`; unificar convención de nombres |
+
+### A.3 Lecciones
+
+- La arquitectura conceptual del repo guía es correcta; sus fallos son de **integración y verificación**, no de planteamiento.
+- Los errores más caros (R16, R17) son de **admisión**: se detectan revisando nombres y presencia de RAM/ROM antes de simular.
+- El VHDL del banco de registros es el único artefacto que se puede reutilizar con confianza, y aun así requiere limpieza de comentarios y un testbench espejo.
 
 ---
 
@@ -440,7 +567,8 @@ python3 tools/run_tests.py
 
 | Fase | Duración estimada | Entregable clave |
 |------|------------------|------------------|
-| 1. Diseño | 1-2 días | Documento de arquitectura |
+| 0. Entorno y contrato | 0.5-1 día | Herramientas verificadas + wrapper de Logisim |
+| 1. Diseño | 1-2 días | Documento de arquitectura + matriz R1-R23 |
 | 2. Register_File VHDL | 1 día | register_file.vhd + testbench |
 | 3. Instruction_Decoder VHDL | 1-2 días | instruction_decoder.vhd + testbench |
 | 4. Datapath Logisim | 2-3 días | Datapath funcional |
