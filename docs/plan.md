@@ -114,6 +114,8 @@ java "-Djava.awt.headless=true" --class-path "$env:LOGISIM_JAR" tools/Verify.jav
 
 **Objetivo:** Dejar el entorno reproducible y fijar el contrato exacto entre Logisim y las entidades VHDL antes de escribir código.
 
+**Estado:** ✅ **Completada el 2026-11-05.** Artefactos en `docs/contrato-logisim/`; resumen del contrato en `docs/contrato-logisim/README.md`; línea base registrada en `docs/context.md`.
+
 **Contexto:** Logisim-Evolution 5.0.0 no usa GHDL para las entidades VHDL: lanza Questa/ModelSim (`vsim`) y espera su socket. En este equipo no hay Questa, así que GHDL 6.0.0 se usa para verificar el VHDL por separado y la validación de integración queda **diferida** hasta que exista Questa o hasta el checkpoint de la Fase 6. Esta decisión está registrada en `docs/context.md`.
 
 **Entregables:**
@@ -130,6 +132,12 @@ java "-Djava.awt.headless=true" --class-path "$env:LOGISIM_JAR" tools/Verify.jav
 0.6 Ajustar los comandos a Windows (`python` en lugar de `python3`, rutas con `\`, variables de entorno).
 
 **Criterio de salida:** Entorno documentado y contrato Logisim↔VHDL escrito; se sabe exactamente qué wrapper espera Questa. Si en cualquier momento se instala Questa, se repite 0.3 y se habilita la validación completa sin cambiar el VHDL.
+
+**Resultado de la Fase 0 (2026-11-05):**
+- Java 21, Logisim 5.0.0, MARS 4.5 (`D:\EscuelaLuisi\AC\Mars4_5.jar`) y GHDL 6.0.0 verificados; Questa ausente.
+- Captura real con `Register_File`: wrapper `top_sim.vhdl`, `comp.tcl`, `run.tcl` y `questasim_binder.tcl` en `docs/contrato-logisim/`.
+- Contrato confirmado: prefijo `LogisimVhdlSimComp_Register_File_0_<Puerto>`, anchos 1/5/32 y protocolo del binder (`tipo:nombre:valor:id`, `run 100`, `sync`).
+- Línea base con CPU vacía: `hello.asm` falla a los 60 000 ciclos con `detenido=false`; es el fallo esperado antes de implementar.
 
 ---
 

@@ -24,6 +24,7 @@ Registro de contexto y progreso. Debe actualizarse en cada commit con:
 | `informe.pdf` | No existe | Pendiente (Fase 10) - R23 |
 | `salida-tests.txt` | No existe | Pendiente (Fase 10) |
 | `docs/plan.md` | Creado | Plan en 10 fases + Fase 0 + Anexo A |
+| `docs/contrato-logisim/` | Creado | Wrapper y scripts Tcl capturados de Logisim 5.0.0 |
 | `docs/context.md` | Creado | Este archivo |
 
 ---
@@ -34,7 +35,7 @@ Registro de contexto y progreso. Debe actualizarse en cada commit con:
 |---|---|---|---|
 | Java | OpenJDK 21.0.13 (Temurin) | OK | Requerido por Logisim, MARS y los scripts |
 | Logisim-Evolution | 5.0.0 (`C:\Program Files\logisim-evolution\app\logisim-evolution-5.0.0-all.jar`) | OK | `LOGISIM_JAR` |
-| MARS | 4.5 (`C:\Users\enrique\Herramientas\Mars4_5.jar`) | OK | `MARS_JAR` |
+| MARS | 4.5 (`D:\EscuelaLuisi\AC\Mars4_5.jar`) | OK | `MARS_JAR` |
 | GHDL | 6.0.0 (`D:\EscuelaLuisi\AC\GHDL\bin\ghdl.exe`) | OK | No está en `PATH`; usar `--std=02` |
 | Questa / ModelSim | No instalado | **BLOQUEANTE** | `QUESTA_BIN` y `SALT_LICENSE_SERVER` vacíos; `vsim` no existe |
 
@@ -118,6 +119,36 @@ Formato sugerido por commit:
 ### Decisiones de diseño
 - ...
 ```
+
+---
+
+### 2026-11-05 - Fase 0 cerrada: contrato Logisim↔VHDL y línea base
+
+**¿Qué se hizo?**
+- Copia temporal `prueba_regfile.circ` con la entidad `Register_File` (stub) instanciada en `CPU`; el `circuit/smips.circ` original no se modificó (R2).
+- `docs/contrato-logisim/`: `README.md`, `top_sim.vhdl`, `Register_File.vhdl`, `comp.tcl`, `run.tcl` y `questasim_binder.tcl` capturados de Logisim 5.0.0.
+- Corregida la ruta de MARS a `D:\EscuelaLuisi\AC\Mars4_5.jar` en la documentación y en las variables de la sesión.
+
+**¿Qué se probó?**
+- `Ports.java` cargó `Register_File` con el nombre exacto y 9 puertos: `CLK`, `RESET`, `RS1[4:0]`, `RS2[4:0]`, `RD[4:0]`, `WD[31:0]`, `REG_WRITE`, `RD1[31:0]`, `RD2[31:0]`.
+- `run_tests.py` con la entidad VHDL generó wrapper, testbench y scripts Tcl antes de abortar por Questa.
+- Línea base con la CPU vacía y `programs/hello.asm`: fallo esperado, `60000 ciclos`, `detenido=false`, `MEM_ADDR final 0xffffffffffffffff`, `0/1 correctos`.
+
+**Resultados**
+- Contrato fijado: prefijo `LogisimVhdlSimComp_<Entidad>_<índice>_<Puerto>`, mapeo por nombre y binder con mensajes `tipo:nombre:valor:id` (`1=in`, `2=out`, `3=inout`), `run 100` y `sync`.
+- La línea base confirma que la placa arranca y que el fallo actual es la CPU vacía, no el entorno.
+
+**Problemas y soluciones**
+- Logisim aborta con `Cannot run program "nullvsim.exe"` porque `QUESTA_BIN` está vacío. No impide la captura de los artefactos; la cosimulación sigue bloqueada.
+- La ruta de MARS documentada no existía; la real es `D:\EscuelaLuisi\AC\Mars4_5.jar`.
+
+**¿Qué queda pendiente?**
+- Fase 1: tabla de estados, señales de control, codificación ALU y matriz de trazabilidad R1–R23.
+- Repetir la captura si se instala Questa; el VHDL del proyecto no debe cambiar.
+
+**Decisiones de diseño**
+- Los artefactos capturados se guardan como referencia de solo lectura; no se regeneran en cada build.
+- El contrato de puertos de `Register_File` queda congelado a partir de esta captura.
 
 ---
 
@@ -237,9 +268,9 @@ Formato sugerido por commit:
 
 ## Próximos Pasos Inmediatos
 
-**Estado:** plan y contexto creados y commiteados; generador mínimo (`circuitlib`) y verificador operativos. El siguiente hito es la Fase 0.3.
+**Estado:** Fase 0 completada (entorno, contrato Logisim↔VHDL y línea base). El siguiente hito es la Fase 1.
 
-1. Fase 0: verificar entorno, capturar el wrapper/testbench de Logisim y documentar el contrato Logisim↔VHDL.
+1. ~~Fase 0: verificar entorno, capturar el wrapper/testbench de Logisim y documentar el contrato Logisim↔VHDL.~~ Hecha.
 2. Fase 1: diseño, tabla de estados y matriz de trazabilidad R1–R23.
 3. Fase 2: implementar `register_file.vhd` + testbench funcional + testbench espejo (GHDL).
 4. Fase 3: implementar `instruction_decoder.vhd` + modelo de referencia en Python (GHDL).
@@ -255,7 +286,7 @@ Formato sugerido por commit:
 ```powershell
 # Variables de entorno (PowerShell)
 $env:LOGISIM_JAR = "C:\Program Files\logisim-evolution\app\logisim-evolution-5.0.0-all.jar"
-$env:MARS_JAR    = "C:\Users\enrique\Herramientas\Mars4_5.jar"
+$env:MARS_JAR    = "D:\EscuelaLuisi\AC\Mars4_5.jar"
 
 # Ensamblar un programa
 python tools/assemble.py programs/hello.asm
