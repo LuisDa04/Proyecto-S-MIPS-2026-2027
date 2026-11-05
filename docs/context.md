@@ -121,6 +121,36 @@ Formato sugerido por commit:
 
 ---
 
+### 2026-11-05 - Generador de circuitos Logisim (circuitlib) y verificador
+
+**¿Qué se hizo?**
+- `tools/circuitlib.py`: creación de proyecto, componentes, pines, subcircuitos con apariencia, túneles, cables, descubrimiento de puertos vía `Ports.java` y fusión que preserva `Board`/`Memory` (R2).
+- `tools/check_circuit.py`: verifica pines exactos de `CPU` (R2), nombres R16, ausencia de RAM/ROM dentro de `CPU` (R17), rejilla de 10 px, túneles huérfanos y pines conectados. Modo `--base` para la CPU vacía.
+- `tools/smoke_circuitlib.py`: prueba de humo con compuerta AND, túnel, recarga real del `.circ`, `connect_port`, validación de tamaños y merge que no toca `Board`/`Memory`.
+
+**¿Qué se probó?**
+- `python tools/smoke_circuitlib.py` → `TODO OK` (5 pruebas).
+- `python tools/check_circuit.py circuit/smips.circ --base` → `OK: 0 aviso(s), sin errores`.
+- Carga headless de los `.circ` generados con Logisim 5.0.0 (`Ports.java`).
+
+**Resultados**
+- Se puede generar, cablear y recargar circuitos sin abrir Logisim ni cablear a mano.
+
+**Problemas y soluciones**
+- Un `.circ` con `<a name="size" val="40"/>` en una `AND Gate` no cargaba: Logisim solo admite `size` 30/50/70 en compuertas de 2+ entradas (20/30 en `NOT`). El error real se ocultaba como `HeadlessException`. Solución: helper `gate()` que valida el tamaño antes de serializar y constantes `GATE_SIZES`/`NOT_GATE_SIZES`.
+- El checker comparaba `in`/`out`, pero Logisim serializa `input`/`output`. Corregido.
+
+**¿Qué queda pendiente?**
+- Generadores por bloque (`gen_datapath.py`, `gen_control.py`, `gen_branch.py`, `gen_cpu.py`).
+- Fase 0.3: capturar el wrapper/testbench que genera Logisim para una entidad VHDL.
+
+**Decisiones de diseño**
+- La conectividad se declara por nombre de señal (túnel), no por geometría; el layout solo evita solapamientos.
+- Nunca se calcula a mano la coordenada de un puerto: se pregunta a `Ports.java`.
+- Los circuitos generados se integran por merge, nunca regenerando el archivo completo (R2).
+
+---
+
 ### 2026-11-05 - Actualización del plan y del contexto (pre-implementación)
 
 **¿Qué se hizo?**
@@ -182,7 +212,7 @@ Formato sugerido por commit:
 
 ## Próximos Pasos Inmediatos
 
-**Estado:** plan y contexto creados y commiteados. El siguiente hito es la Fase 0.
+**Estado:** plan y contexto creados y commiteados; generador mínimo (`circuitlib`) y verificador operativos. El siguiente hito es la Fase 0.3.
 
 1. Fase 0: verificar entorno, capturar el wrapper/testbench de Logisim y documentar el contrato Logisim↔VHDL.
 2. Fase 1: diseño, tabla de estados y matriz de trazabilidad R1–R23.
@@ -217,4 +247,10 @@ D:\EscuelaLuisi\AC\GHDL\bin\ghdl.exe -e --std=02 register_file
 
 # Abrir circuito en Logisim (Git Bash)
 bash open.sh
+
+# Generador de circuitos: prueba de humo y verificador
+python tools/smoke_circuitlib.py
+python tools/check_circuit.py circuit/smips.circ --base
 ```
+
+**Nota:** `Logisim` serializa los pines como `input`/`output` (no `in`/`out`) y solo admite `size` 30/50/70 en compuertas de 2+ entradas (20/30 en `NOT`). Usar `circuitlib.gate()` para no generar un `.circ` que no carga.

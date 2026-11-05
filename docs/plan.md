@@ -81,6 +81,29 @@ Se implementa en Logisim nativo:
 
 ---
 
+## Generación de Circuitos Logisim (sin cableado manual)
+
+Los circuitos se generan desde Python con el mismo patrón de dos fases que ya usa `tools/build.py`:
+
+1. **Describir:** `tools/circuitlib.py` coloca componentes, pines y subcircuitos en coordenadas de rejilla.
+2. **Descubrir:** se guarda un `.circ` temporal y `tools/Ports.java` lo carga en Logisim headless; devuelve la coordenada exacta de cada puerto.
+3. **Conectar:** cada puerto se une con un tramo corto a un túnel con el nombre de la señal. La conectividad se declara por nombre, no por geometría.
+4. **Fusionar:** `merge_circuits()` reemplaza solo los circuitos de la CPU y conserva `Board`, `Memory`, `<main>` y `<lib>` (R2).
+5. **Verificar:** `tools/check_circuit.py` comprueba pines de `CPU`, nombres R16, ausencia de RAM/ROM (R17), rejilla y túneles huérfanos.
+
+```text
+python tools/build.py             # placa base (Board + Memory)
+python tools/gen_*.py             # circuitos de la CPU por bloque
+python tools/check_circuit.py     # invariantes antes de simular
+python tools/smoke_circuitlib.py  # prueba de humo del generador
+```
+
+**Reglas:** un túnel por señal y ancho; nunca calcular a mano la coordenada de un puerto; extremos de cable en la rejilla de 10 px; validar cada `.circ` generado cargándolo con `Ports.java`.
+
+**Límites:** el XML de `.circ` es un formato interno de Logisim 5.0.0, no una API pública. No se genera ruteo automático general: con túneles basta con tramos rectos. Atributos con valores inválidos (por ejemplo `size` de compuerta) hacen que Logisim muestre un diálogo y el archivo no cargue; la librería valida los casos conocidos.
+
+---
+
 ## Fases Modulares de Implementación
 
 ### Fase 0: Entorno, línea base y contrato Logisim↔VHDL
