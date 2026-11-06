@@ -145,6 +145,9 @@ java "-Djava.awt.headless=true" --class-path "$env:LOGISIM_JAR" tools/Verify.jav
 
 **Objetivo:** Definir arquitectura antes de tocar Logisim.
 
+**Estado:** ✅ **Completada el 2026-11-05.** El diseño definitivo, con ISA,
+control, FSM, interfaces y matriz R1–R23, está en `docs/diseno.md`.
+
 **Entregables:**
 - Diagrama de ruta de datos con nombres de señales de control.
 - Tabla de estados de la `Control_Unit` (nombres, transiciones, condiciones).
@@ -156,7 +159,7 @@ java "-Djava.awt.headless=true" --class-path "$env:LOGISIM_JAR" tools/Verify.jav
 **Tareas:**
 1.1 Leer `docs/guide.tex` completo y extraer todos los requisitos R1-R23.
 1.2 Definir juego de señales de control (muxes, enables, ALU op, MEM_BE, TTY_WE, MEM_WE, HALT).
-1.3 Diseñar máquina de estados (sugerida: FETCH, DECODE, EXECUTE, MEM, WRITEBACK, plus estados específicos para saltos/syscall).
+1.3 Diseñar máquina de estados. La tabla definitiva quedó en `docs/diseno.md` §6: `FETCH`, `DECODE`, `EXEC_R`, `EXEC_I`, `ADDR`, `MEM_READ`, `MEM_WRITE`, `BRANCH`, `JUMP`, `SYSCALL`, `WB`, `HALT`.
 1.4 Definir formato de IR y campos extraídos (op, rs, rt, rd, shamt, funct, inmediato).
 1.5 Especificar interface de `Instruction_Decoder` (entradas OP/FUNCT, salidas de control).
 1.6 Especificar interface de `Register_File` VHDL (CLK, RESET, RS1, RS2, RD, WD, REG_WRITE, RD1, RD2).
@@ -168,6 +171,11 @@ java "-Djava.awt.headless=true" --class-path "$env:LOGISIM_JAR" tools/Verify.jav
 
 **Criterio de salida:** Documento de diseño aprobado (puede ser parte del informe final) y matriz de trazabilidad completa.
 
+**Resultado de la Fase 1 (2026-11-05):**
+- `docs/diseno.md` con la ISA (23 base + 2 alias), tabla de decodificación de 25 filas, codificación de la ALU, ruta de datos, FSM de 12 estados, salidas por estado, casos especiales, ciclos, interfaces y convención de túneles.
+- Decisiones cerradas: reset asíncrono activo alto; `PC+4` con la ALU en `FETCH`; comparador de igualdad en `Branch_Control`; `MEM_TO_REG=PC` para `jal`; `HALT` solo por ilegal o `syscall 10`.
+- Matriz R1–R23 completa con la evidencia prevista para cada requisito.
+
 ---
 
 ### Fase 2: Implementación VHDL — Register_File
@@ -176,7 +184,7 @@ java "-Djava.awt.headless=true" --class-path "$env:LOGISIM_JAR" tools/Verify.jav
 
 **Archivo:** `circuit/register_file.vhd`
 
-**Contrato de nombres (R16/R19):** la entidad VHDL se llama `register_file` (VHDL no distingue mayúsculas), pero el subcircuito de Logisim debe llamarse exactamente `Register_File`. Los nombres y tipos de los puertos se fijan en la Fase 0 y **no se cambian después**.
+**Contrato de nombres (R16/R19):** la entidad VHDL se llama `Register_File` (VHDL no distingue mayúsculas; el archivo es `register_file.vhd`), y el subcircuito de Logisim debe llamarse exactamente `Register_File`. Los nombres y tipos de los puertos se fijan en la Fase 0 y **no se cambian después**.
 
 **Especificación técnica:**
 
@@ -201,19 +209,19 @@ end entity;
 - Si `RS1 = "00000"` → `RD1 = 0` siempre ($zero hardwired).
 - Si `RS2 = "00000"` → `RD2 = 0` siempre ($zero hardwired).
 - Escritura: si `REG_WRITE=1` y `RD ≠ "00000"` en flanco de subida de CLK → `mem[RD] <= WD`.
-- Reset (asíncrono o síncrono): todos los registros a 0 excepto $zero que es 0 por definición.
-- Valores iniciales: $gp (registro 28) = 0x1800, $sp (registro 29) = 0x3FFC, resto 0.
+- Reset asíncrono activo alto (decisión de Fase 1): `$gp` (registro 28) = `0x1800`, `$sp` (registro 29) = `0x3FFC`, el resto a 0; `$zero` siempre 0.
+- No se usan valores iniciales de VHDL (R20): los valores anteriores se cargan en el mismo proceso de reset.
 
 **Reglas VHDL conservadoras (para minimizar diferencias GHDL/Questa):**
 - VHDL-2002 estricto; solo `ieee.std_logic_1164` y `ieee.numeric_std` (R19).
 - Sin valores iniciales en señales, sin `wait`, sin `after`, sin ficheros (R20).
-- Reset síncrono explícito en el mismo `process` del flanco, o asíncrono en la lista de sensibilidad; documentar cuál se elige.
+- Reset asíncrono activo alto, con `RESET` en la lista de sensibilidad del proceso (decisión de Fase 1).
 - `$zero` protegido también en escritura, no solo en lectura.
 
 **Tareas:**
 2.1 Escribir `register_file.vhd` cumpliendo R17, R19, R20.
 2.2 Verificar compilación VHDL-2002 sin avisos: `ghdl -a --std=02 --warn-all register_file.vhd`.
-2.3 Crear testbench funcional (32 registros, `$zero`, reset, dos lecturas simultáneas) y testbench **espejo** que replique el wrapper de Logisim capturado en la Fase 0.
+2.3 Crear testbench funcional (32 registros, `$zero`, reset con `$gp=0x1800` y `$sp=0x3FFC`, dos lecturas simultáneas) y testbench **espejo** que replique el wrapper de Logisim capturado en la Fase 0.
 2.4 Integrar en Logisim como entidad VHDL (Proyecto → Añadir entidad VHDL) y comprobar que los pines coinciden con el contrato.
 2.5 Probar aisladamente en Logisim con estímulos manuales (sin ejecutar la CPU completa).
 
@@ -266,24 +274,24 @@ end entity;
 **Subcircuitos dentro de Datapath:** `Register_File` (VHDL de Fase 2), `ALU` (Logisim nativo).
 
 **Componentes del Datapath:**
-- **PC**: registro de 32 bits, habilitado por `Branch_Control`, reset a 0.
+- **PC**: registro de 32 bits, habilitado por `PC_WRITE = PC_WRITE_CTL OR PC_WRITE_BRANCH`, reset a 0.
 - **IR**: registro de 32 bits, carga instrucción desde MEM_RDATA.
 - **ALU**: una sola, operaciones: add, sub, and, or, slt, sll, srl, lui, addi, etc. Salida + `zero`.
 - **Extensión inmediato**: sign-extend y zero-extend de 16→32 bits.
 - **Alineación bytes para lb/lbu/sb**: splitter/selectores según `MEM_ADDR[1:0]`.
-- **Cálculo destino j/jal**: `{PC+4[31:28], dir26, 00}`.
+- **Cálculo destino j/jal**: `{PC[31:28], IR[25:0], 2'b00}` (el registro `PC` ya vale `PC+4`).
 - **Muxes**: seleccionar origen ALU (registro vs inmediato), destino escritura (ALU vs MEM vs PC+4), etc.
 
 **Restricciones críticas (R14):**
 - SOLO una ALU en todo el Datapath.
 - PC+4 se calcula con la ALU (operación add con operando constante 4).
 - Dirección de memoria (lw/sw/lb/lbu/sb) se calcula con la ALU: `RS1 + SignExt(imm)`.
-- Destino de salto (j/jal/jr/branch) se calcula con la ALU o lógica derivada.
+- Destino de salto: `j`/`jal` por concatenación `{PC[31:28], IR[25:0], 2'b00}`; `jr` por `A`; `beq`/`bne` con la ALU (`PC + (SignExt(imm)<<2)`).
 
 **Trampas obligatorias (todas detectadas en el repo guía y todas bloqueantes):**
 - **Sin `Memory` dentro del `Datapath`.** La CPU recibe `MEM_RDATA` por su pin y devuelve `MEM_ADDR`/`MEM_WDATA`/`MEM_BE`/`MEM_WE`; la única RAM es la de `Board` (R13/R17).
 - **Puerto `RESET` en el `Datapath`** y cableado hasta el `Register_File`; sin él no se inicializan `$gp`, `$sp` ni el resto (R6).
-- **Fuente PC+4** para `jal`: la ALU debe poder sumar PC+4 y ese valor debe llegar al mux de writeback.
+- **Fuente PC+4** para `jal`: el registro `PC` ya contiene `PC+4` al terminar `FETCH`; `MEM_TO_REG=PC` lleva ese valor al writeback de `jal`.
 - **Camino `$31`**: `REG_DST` debe poder seleccionar el registro 31 para `jal`.
 - **Camino `jr`**: la dirección de `rs` debe poder llegar al PC.
 - **Desplazamiento de `lui`**: `imm << 16` antes de entrar a la ALU o al writeback.
@@ -306,9 +314,9 @@ end entity;
 
 **Control_Unit (R15):**
 - Máquina de estados síncrona con biestables/registros; el estado es **interno**, no una entrada.
-- Entradas: CLK, RESET, salidas de `Instruction_Decoder`, `Zero` de la ALU.
-- Salidas: señales de control a Datapath (`PCwr`, `IRwr`, `Regwr`, `Awr`, `Bwr`, `ALUwr`, `MDRwr`, `IorD`, `RegDst`, `MemToReg`, `ALUSrcA`, `ALUSrcB`, `ALUOP`), `MEM_WE`, `MEM_BE` (si no se genera en el Datapath), `TTY_WE` y `HALT`.
-- Puede ser Moore o Mealy, pero la tabla de estados debe ser explícita y auditable.
+- Entradas: `CLK`, `RESET`, salidas de `Instruction_Decoder` y `A` (32, para distinguir `syscall` 10/11).
+- Salidas: `PC_WRITE_CTL`, `PC_SRC`, `IR_WRITE`, `A_WRITE`, `B_WRITE`, `ALU_WRITE`, `MDR_WRITE`, `REG_WRITE`, `RS1_SEL`, `RS2_SEL`, `ALU_SRC_A`, `ALU_SRC_B`, `ALU_OP`, `MEM_ADDR_SEL`, `BRANCH_ENABLE`, `MEM_WE`, `TTY_WE`, `HALT` y el paso directo de `EXT_TYPE`, `REG_DST`, `MEM_TO_REG`, `MEM_SIZE`, `MEM_SIGNED`, `BRANCH_TYPE` y `JUMP_TYPE`.
+- Es **Moore**: las salidas dependen del estado y de entradas registradas (IR, A, B, decodificador). `Branch_Control` es combinacional y se mantiene fuera de la FSM. `MEM_BE` se genera en el `Datapath`.
 
 **Reglas de salida (R4/R5/R10):**
 - `HALT=1` **solo** por instrucción ilegal o por `syscall 10`; nunca cableado directamente a `Illegal` sin pasar por la FSM.
@@ -318,21 +326,28 @@ end entity;
 
 **Implementación del próximo estado:** tabla explícita (estado actual × condición → estado siguiente) construida con puertas, muxes y decodificadores. **Prohibido usar ROM** (R17). La tabla se copia tal cual al informe.
 
-**Estados sugeridos (mínimo funcional):**
-1. `FETCH` — leer instrucción de MEM en PC, guardar en IR.
-2. `DECODE` — decodificar, preparar señales.
-3. `EXECUTE` — operación ALU (add/sub/and/or/slt/sll/srl/lui/addi).
-4. `MEM_ACCESS` — lectura/escritura memoria (lw/sw/lb/lbu/sb).
-5. `WRITEBACK` — escribir resultado en Register_File.
-6. `BRANCH` — evaluar beq/bne, actualizar PC si tomado.
-7. `JUMP` — actualizar PC para j/jal/jr.
-8. `SYSCALL` — manejar syscall 10 (HALT) y 11 (TTY).
-9. `ILLEGAL` — HALT=1, detener (R10).
-10. `RESET` — estado inicial tras reset.
+**Estados definitivos (ver `docs/diseno.md` §6):**
+1. `FETCH` — leer instrucción de MEM en PC, guardar en IR y avanzar PC con la ALU.
+2. `DECODE` — cargar `A`/`B` desde `Register_File`; para `syscall`, `$v0`/`$a0`.
+3. `EXEC_R` — operación ALU de tipo R (incluye desplazamientos).
+4. `EXEC_I` — operación ALU con inmediato (incluye `lui`).
+5. `ADDR` — calcular `A + SignExt(imm)` con la ALU.
+6. `MEM_READ` — leer memoria y cargar `MDR`.
+7. `MEM_WRITE` — escribir memoria (`MEM_WE=1`).
+8. `BRANCH` — comparar `A`/`B` y calcular el destino con la ALU.
+9. `JUMP` — actualizar PC para `j`/`jal`/`jr`; `jal` escribe `$31`.
+10. `SYSCALL` — servicio 10 (HALT) u 11 (TTY).
+11. `WB` — escribir el resultado en `Register_File`.
+12. `HALT` — `HALT=1`; permanece hasta el reset.
+
+No hay estado `RESET`: el reset es asíncrono y fuerza la FSM a `FETCH`. La tabla
+completa de transiciones y salidas está en `docs/diseno.md` §6 y §7.
 
 **Branch_Control (combinacional):**
-- Entradas: señales de control, resultado comparación (zero de ALU o comparador separado permitido por R14).
-- Salida: `PC_WRITE` (1 si se debe escribir PC este ciclo).
+- Entradas: `A` (32), `B` (32), `BRANCH_TYPE` (2) y `BRANCH_ENABLE`.
+- Comparador de igualdad de 32 bits (permitido por R14); no usa la ALU.
+- Salidas: `EQ` y `PC_WRITE_BRANCH = BRANCH_ENABLE AND ((BRANCH_TYPE=01 AND EQ) OR (BRANCH_TYPE=10 AND NOT EQ))`.
+- La CPU calcula `PC_WRITE = PC_WRITE_CTL OR PC_WRITE_BRANCH`.
 
 **Tareas:**
 5.1 Diseñar FSM de `Control_Unit` (diagrama de estados y transiciones).

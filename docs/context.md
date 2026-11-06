@@ -24,6 +24,7 @@ Registro de contexto y progreso. Debe actualizarse en cada commit con:
 | `informe.pdf` | No existe | Pendiente (Fase 10) - R23 |
 | `salida-tests.txt` | No existe | Pendiente (Fase 10) |
 | `docs/plan.md` | Creado | Plan en 10 fases + Fase 0 + Anexo A |
+| `docs/diseno.md` | Creado | Diseño de Fase 1: ISA, control, FSM, interfaces y matriz R1–R23 |
 | `docs/contrato-logisim/` | Creado | Wrapper y scripts Tcl capturados de Logisim 5.0.0 |
 | `docs/context.md` | Creado | Este archivo |
 
@@ -74,22 +75,22 @@ Detalle completo y evidencia en `docs/plan.md`, Anexo A.
 | Riesgo | Impacto | Mitigación |
 |---|---|---|
 | Questa no instalado | No se puede validar la integración VHDL con `run_tests.py` | GHDL + testbench espejo; checkpoint Fase 6; contingencia 100 % Logisim |
-| R16 (nombres) y R17 (RAM/ROM) | No evaluable / bloqueante | Revisión en Fase 1 y Fase 6; sin ROM para FSM ni ALU |
+| R16 (nombres) y R17 (RAM/ROM) | No evaluable / bloqueante | Diseño en Fase 1; revisión en Fase 6; sin ROM para FSM ni ALU |
 | Límite de 60 000 ciclos | Programas largos abortan | 3-5 ciclos por instrucción; medir en Fase 8 |
 | Carriles de byte (`lb`/`lbu`/`sb`) | Salida distinta a MARS | Pruebas dedicadas en Fase 7 y Fase 9 |
 | Reset no cableado | `$gp`/`$sp` incorrectos | Puerto `RESET` en `Datapath`; prueba en Fase 7 |
 
 ---
 
-## Decisiones de Arquitectura (pendiente de confirmar en implementación)
+## Decisiones de Arquitectura (cerradas en Fase 1)
 
 | Decisión | Opción seleccionada | Justificación |
 |----------|-------------------|---------------|
 | VHDL componentes | Register_File + Instruction_Decoder | Máx 2 permitidos (R18); son los de mayor complejidad de cableado en Logisim |
 | ALU | Logisim nativo | Solo una instancia; componentes aritméticos nativos disponibles |
-| Reset | Pendiente (asíncrono o síncrono) | R6 permite cualquiera |
-| Máquina de estados | Pendiente (Moore o Mealy) | R15 permite cualquiera |
-| Estados de control | Pendiente | Definir en Fase 1 |
+| Reset | Asíncrono activo alto | R6 lo permite; fuerza PC, RF y FSM sin estado `RESET` |
+| Máquina de estados | Moore, 12 estados | Salidas dependen del estado y de entradas registradas; tabla auditable |
+| Estados de control | `FETCH`, `DECODE`, `EXEC_R`, `EXEC_I`, `ADDR`, `MEM_READ`, `MEM_WRITE`, `BRANCH`, `JUMP`, `SYSCALL`, `WB`, `HALT` | `docs/diseno.md` §6 |
 | Verificación VHDL | GHDL local + Questa diferida | No hay Questa instalado; GHDL valida compilación y testbenches |
 | Contingencia VHDL | Sustituir por circuitos Logisim | R18 permite cero VHDL si la integración no se puede validar |
 
@@ -119,6 +120,40 @@ Formato sugerido por commit:
 ### Decisiones de diseño
 - ...
 ```
+
+---
+
+### 2026-11-05 - Fase 1 cerrada: diseño de la CPU multiciclo
+
+**¿Qué se hizo?**
+- `docs/diseno.md`: ISA de 23 instrucciones base + 2 alias R9, tabla de decodificación de 25 filas, salidas del `Instruction_Decoder`, señales de control y codificación de muxes, ALU de 8 operaciones, ruta de datos, FSM de 12 estados, tabla de salidas por estado, casos especiales, ciclos, interfaces de los 6 subcircuitos, convención de túneles y matriz R1–R23.
+- `docs/plan.md`: Fase 1 marcada como completada; Fase 2 alineada con reset asíncrono y `$gp`/`$sp`; Fases 4–5 alineadas con la FSM y `Branch_Control` definitivos.
+- `docs/context.md`: decisiones de arquitectura cerradas y checklist de requisitos actualizado.
+
+**¿Qué se probó?**
+- Contraste de la ISA contra `docs/guide.tex`: 23 instrucciones base, 2 alias de R9, `TTY_DATA` de 7 bits, `$v0`/`$a0` como registros 2 y 4.
+- Revisión cruzada de la tabla de decodificación: `jal` usa `REG_DST=10` (`$31`), `MEM_TO_REG=PC`; `sll`/`srl` intercambian operandos vía `ALU_SRC_A=B`; `lb`/`lbu`/`sb` usan `ALUOUT[1:0]`; `syscall` usa `RS1_SEL=1`/`RS2_SEL=1`.
+- Coherencia plan↔diseño: estados, transiciones, reset, `PC+4` y `jal` sin contradicciones.
+
+**Resultados**
+- Diseño cerrado sin decisiones abiertas de arquitectura. La FSM tarda 3–5 ciclos por instrucción y no usa RAM/ROM (R17).
+- El reset es asíncrono activo alto: `FETCH` como estado inicial, sin estado `RESET`; `$gp=0x1800`, `$sp=0x3FFC`, resto 0.
+
+**¿Qué queda pendiente?**
+- Fase 2: `circuit/register_file.vhd` + testbench funcional + testbench espejo, validado con GHDL.
+- Fase 3: `circuit/instruction_decoder.vhd` + modelo Python de contraste.
+- Fases 4–10 según `docs/plan.md`.
+
+**Problemas y soluciones**
+- El plan decía “todos los registros a 0” en reset y usaba estados genéricos (`EXECUTE`, `MEM_ACCESS`, `WRITEBACK`, `ILLEGAL`, `RESET`). Se corrigió para exigir `$gp`/`$sp` y para referenciar la FSM definitiva de 12 estados.
+- La tabla de decodificación usaba `REG_DST=31` para `jal`, que se confundía con el número de registro; se cambió al código `10` con leyenda explícita.
+
+**Decisiones de diseño**
+- FSM Moore de 12 estados; reset asíncrono activo alto.
+- `PC+4` con la ALU en `FETCH`; `PC` ya contiene `PC+4` en `WB`/`JUMP`.
+- Comparador de igualdad de 32 bits en `Branch_Control` (R14).
+- `jal` escribe `$31` con `MEM_TO_REG=PC`; `jr` usa `A` como destino.
+- `HALT` solo por instrucción ilegal o `syscall 10`; `syscall 11` activa `TTY_WE` un solo ciclo.
 
 ---
 
@@ -238,40 +273,42 @@ Formato sugerido por commit:
 
 ## Checklist de Requisitos (R1-R23)
 
+**Leyenda:** `Diseñado` = decisión y trazabilidad registradas en `docs/diseno.md`, todavía sin implementar. `Implementado` = circuito/VHDL presente. `Verificado` = prueba ejecutada con evidencia.
+
 | Req | Descripción | Estado | Evidencia |
 |-----|-------------|--------|-----------|
-| R1 | CPU en smips.circ, Logisim 5.0.0 | Pendiente | Logisim 5.0.0 + Java 21 verificados (Fase 0) |
+| R1 | CPU en smips.circ, Logisim 5.0.0 | Pendiente | Logisim 5.0.0 + Java 21 verificados (Fase 0); diseño en `docs/diseno.md` |
 | R2 | No modificar Board/Memory/pines CPU | Pendiente | Regla activa; comprobar en cada commit |
-| R3 | Secuenciales en flanco CLK, sin relojes derivados | Pendiente | |
-| R4 | TTY_WE = 1 un ciclo por carácter | Pendiente | |
-| R5 | MEM_WE = 1 solo en sw/sb | Pendiente | |
-| R6 | Reset: PC=0, gp=0x1800, sp=0x3FFC, regs=0 | Pendiente | |
-| R7 | Reset no borra memoria | Pendiente | |
-| R8 | 23 instrucciones S-MIPS | Pendiente | |
-| R9 | addu≡add, addiu≡addi | Pendiente | |
-| R10 | Instrucción ilegal → HALT; 0x00000000 = NOP | Pendiente | |
-| R11 | Identificación solo por op/funct | Pendiente | |
-| R12 | Multiciclo, una instrucción a la vez | Pendiente | |
-| R13 | Memoria unificada, IR guarda instrucción | Pendiente | |
-| R14 | Una sola ALU, sin otros sumadores | Pendiente | |
-| R15 | Control_Unit = máquina de estados síncrona | Pendiente | |
-| R16 | 6 subcircuitos con nombres exactos | Pendiente | |
-| R17 | Sin RAM/ROM en CPU | Pendiente | |
+| R3 | Secuenciales en flanco CLK, sin relojes derivados | Diseñado | `docs/diseno.md` §5.1 y §6.3 |
+| R4 | TTY_WE = 1 un ciclo por carácter | Diseñado | `docs/diseno.md` §8.1 |
+| R5 | MEM_WE = 1 solo en sw/sb | Diseñado | `docs/diseno.md` §6.2 y §7 |
+| R6 | Reset: PC=0, gp=0x1800, sp=0x3FFC, regs=0 | Diseñado | `docs/diseno.md` §6.3 |
+| R7 | Reset no borra memoria | Diseñado | `docs/diseno.md` §6.3 (`MEM_WE=0`) |
+| R8 | 23 instrucciones S-MIPS | Diseñado | `docs/diseno.md` §2.1: 23 base + 2 alias R9 = 25 filas |
+| R9 | addu≡add, addiu≡addi | Diseñado | `docs/diseno.md` §2.3 |
+| R10 | Instrucción ilegal → HALT; 0x00000000 = NOP | Diseñado | `docs/diseno.md` §8.2 |
+| R11 | Identificación solo por op/funct | Diseñado | `docs/diseno.md` §2.1 |
+| R12 | Multiciclo, una instrucción a la vez | Diseñado | `docs/diseno.md` §6 y §9: 3–5 ciclos |
+| R13 | Memoria unificada, IR guarda instrucción | Diseñado | `docs/diseno.md` §5.1 y §10.7 |
+| R14 | Una sola ALU, sin otros sumadores | Diseñado | `docs/diseno.md` §4 |
+| R15 | Control_Unit = máquina de estados síncrona | Diseñado | `docs/diseno.md` §6 |
+| R16 | 6 subcircuitos con nombres exactos | Diseñado | `docs/diseno.md` §10 |
+| R17 | Sin RAM/ROM en CPU | Diseñado | `docs/diseno.md` §10; checker en Fase 6 |
 | R18 | Máx 2 VHDL de 3 permitidos | Decidido | `Register_File` + `Instruction_Decoder`; `ALU` nativa |
-| R19 | VHDL puertos std_logic, sin generics | Pendiente | GHDL 6.0.0 listo; `register_file` de referencia compila sin avisos |
-| R20 | VHDL sintetizable, sin wait/after | Pendiente | Reglas conservadoras en plan, Fase 2 |
-| R21 | tests/ cubriendo tabla de casos | Pendiente | |
-| R22 | Repo GitHub por Telegram | Pendiente | |
-| R23 | smips.circ, .vhd, informe.pdf, tests/, salida-tests.txt | Pendiente | |
+| R19 | VHDL puertos std_logic, sin generics | Diseñado | `docs/diseno.md` §10.1 y §10.5; GHDL 6.0.0 listo |
+| R20 | VHDL sintetizable, sin wait/after | Diseñado | Reglas conservadoras en plan, Fase 2 |
+| R21 | tests/ cubriendo tabla de casos | Pendiente | Fase 9 |
+| R22 | Repo GitHub por Telegram | Pendiente | Entrega final |
+| R23 | smips.circ, .vhd, informe.pdf, tests/, salida-tests.txt | Pendiente | Fase 10 |
 
 ---
 
 ## Próximos Pasos Inmediatos
 
-**Estado:** Fase 0 completada (entorno, contrato Logisim↔VHDL y línea base). El siguiente hito es la Fase 1.
+**Estado:** Fases 0 y 1 completadas (entorno, contrato Logisim↔VHDL, línea base y diseño). El siguiente hito es la Fase 2.
 
 1. ~~Fase 0: verificar entorno, capturar el wrapper/testbench de Logisim y documentar el contrato Logisim↔VHDL.~~ Hecha.
-2. Fase 1: diseño, tabla de estados y matriz de trazabilidad R1–R23.
+2. ~~Fase 1: diseño, tabla de estados y matriz de trazabilidad R1–R23.~~ Hecha; ver `docs/diseno.md`.
 3. Fase 2: implementar `register_file.vhd` + testbench funcional + testbench espejo (GHDL).
 4. Fase 3: implementar `instruction_decoder.vhd` + modelo de referencia en Python (GHDL).
 5. Fase 4-6: Datapath, Control_Unit, Branch_Control e integración CPU en Logisim; **checkpoint** de integración VHDL.
