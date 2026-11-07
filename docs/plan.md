@@ -219,11 +219,19 @@ end entity;
 - `$zero` protegido también en escritura, no solo en lectura.
 
 **Tareas:**
-2.1 Escribir `register_file.vhd` cumpliendo R17, R19, R20.
-2.2 Verificar compilación VHDL-2002 sin avisos: `ghdl -a --std=02 --warn-all register_file.vhd`.
-2.3 Crear testbench funcional (32 registros, `$zero`, reset con `$gp=0x1800` y `$sp=0x3FFC`, dos lecturas simultáneas) y testbench **espejo** que replique el wrapper de Logisim capturado en la Fase 0.
-2.4 Integrar en Logisim como entidad VHDL (Proyecto → Añadir entidad VHDL) y comprobar que los pines coinciden con el contrato.
-2.5 Probar aisladamente en Logisim con estímulos manuales (sin ejecutar la CPU completa).
+2.1 Escribir `register_file.vhd` cumpliendo R17, R19, R20. ~~Hecho~~
+2.2 Verificar compilación VHDL-2002 sin avisos: `ghdl -a --std=02 --warn-all register_file.vhd`. ~~Hecho~~
+2.3 Crear testbench funcional (32 registros, `$zero`, reset con `$gp=0x1800` y `$sp=0x3FFC`, dos lecturas simultáneas) y testbench **espejo** que replique el wrapper de Logisim capturado en la Fase 0. ~~Hecho: `tests/vhdl/register_file_tb.vhd` y `tests/vhdl/top_sim_tb.vhd`~~
+2.4 Integrar en Logisim como entidad VHDL y comprobar que los pines coinciden con el contrato. ~~Hecho (parcial): `Ports.java` verificó los 9 puertos y anchos exactos en modo headless~~
+2.5 Probar aisladamente en Logisim con estímulos manuales. Bloqueado por falta de Questa; queda para el checkpoint de Fase 6 (contingencia 100 % Logisim).
+
+---
+
+**Estado:** ✅ **Completada el 2026-11-06.** Commit `9471508`.
+- `circuit/register_file.vhd` (entidad `Register_File`, reset asíncrono, `$gp`/`$sp`, `$zero` protegido).
+- `tests/vhdl/register_file_tb.vhd` + `tests/vhdl/top_sim_tb.vhd` (GHDL: `TB_OK`, salida 0).
+- `tools/check_vhdl.py` (análisis `--std=02 --warn-all`, contrato de puertos, reglas R19/R20, ejecución de `*_tb` con `--stop-time`).
+- `docs/context.md` con la entrada de Fase 2 y el checklist actualizado (R16/R19/R20 parcialmente implementados).
 
 ---
 
