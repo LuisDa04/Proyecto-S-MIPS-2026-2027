@@ -157,6 +157,33 @@ Formato sugerido por commit:
 
 ---
 
+### 2026-11-06 - Fase 2 cerrada: Register_File VHDL y testbenches (GHDL)
+
+**¿Qué se hizo?**
+- `circuit/register_file.vhd`: entidad `Register_File` de 32×32 bits, lecturas combinacionales `RD1`/`RD2`, escritura en flanco de subida con `REG_WRITE`, `$zero` protegido en lectura y escritura, reset asíncrono activo alto con `$gp=0x1800` (registro 28) y `$sp=0x3FFC` (registro 29), resto a 0. VHDL-2002, solo `ieee.std_logic_1164` e `ieee.numeric_std`, sin `wait`, `after`, ficheros ni valores iniciales (R19/R20).
+- `tests/vhdl/register_file_tb.vhd`: testbench funcional que cubre reset (`$gp`/`$sp`/31 registros/`$zero`), lecturas simultáneas, `REG_WRITE=0`, escritura en flanco, protección de `$zero` y reset asíncrono a mitad de simulación.
+- `tests/vhdl/top_sim_tb.vhd`: testbench espejo del wrapper `top_sim` capturado en la Fase 0; instancia `top_sim` con los nombres exactos `LogisimVhdlSimComp_Register_File_0_*` y comprueba el contrato de Logisim↔VHDL (R16/R19).
+- `tools/check_vhdl.py`: validador repetible que analiza con `--std=02 --warn-all`, filtra el stub de `docs/contrato-logisim/` cuando el circuito ya define la entidad, comprueba el contrato de puertos y R19/R20 con `--lint`, elabora y ejecuta cada `*_tb` con `--assert-level=error --stop-time`.
+
+**¿Qué se probó?**
+- `python tools/check_vhdl.py --lint`: 4 archivos analizados, 2 testbenches ejecutados, salida 0, `TB_OK: Register_File funcional` (411 ns) y `TB_OK: top_sim (contrato Logisim)` (47 ns).
+- `python tools/check_vhdl.py` (sin `--lint`): mismo resultado sin las reglas de lint.
+- `tools/Ports.java` en modo headless sobre un `.circ` temporal: `Register_File` con 9 puertos exactos y anchos correctos (`CLK`, `RESET`, `REG_WRITE` de 1 bit; `RS1`, `RS2`, `RD` de 5 bits; `WD`, `RD1`, `RD2` de 32 bits; 7 entradas, 2 salidas).
+- `python tools/check_circuit.py circuit/smips.circ --base`: `OK: 0 aviso(s), sin errores` (el `.circ` entregable sigue intacto, R2).
+
+**Resultados**
+- Fase 2 lista para commitear. El VHDL de `Register_File` cumple el contrato congelado en Fase 0 y el testbench espejo demuestra que Logisim podrá instanciarlo sin renombrar puertos.
+- La cosimulación real con Questa sigue bloqueada (`QUESTA_BIN` vacío), pero la validación del contrato con GHDL es equivalente para esta fase (contingencia 100 % Logisim diferida al checkpoint de Fase 6).
+
+**¿Qué queda pendiente?**
+- Fase 3: `circuit/instruction_decoder.vhd` + modelo de referencia en Python y validación GHDL.
+- Fases 4–10 según `docs/plan.md`.
+
+**Decisiones de diseño**
+- Ninguna nueva: el reset asíncrono activo alto y `$gp`/`$sp` ya estaban cerrados en Fase 1.
+
+---
+
 ### 2026-11-05 - Fase 0 cerrada: contrato Logisim↔VHDL y línea base
 
 **¿Qué se hizo?**
@@ -292,11 +319,11 @@ Formato sugerido por commit:
 | R13 | Memoria unificada, IR guarda instrucción | Diseñado | `docs/diseno.md` §5.1 y §10.7 |
 | R14 | Una sola ALU, sin otros sumadores | Diseñado | `docs/diseno.md` §4 |
 | R15 | Control_Unit = máquina de estados síncrona | Diseñado | `docs/diseno.md` §6 |
-| R16 | 6 subcircuitos con nombres exactos | Diseñado | `docs/diseno.md` §10 |
+| R16 | 6 subcircuitos con nombres exactos | Implementado (parcial) | `circuit/register_file.vhd` y subcircuito `Register_File` en Logisim; puerto verificado con `Ports.java` (Fase 2) |
 | R17 | Sin RAM/ROM en CPU | Diseñado | `docs/diseno.md` §10; checker en Fase 6 |
 | R18 | Máx 2 VHDL de 3 permitidos | Decidido | `Register_File` + `Instruction_Decoder`; `ALU` nativa |
-| R19 | VHDL puertos std_logic, sin generics | Diseñado | `docs/diseno.md` §10.1 y §10.5; GHDL 6.0.0 listo |
-| R20 | VHDL sintetizable, sin wait/after | Diseñado | Reglas conservadoras en plan, Fase 2 |
+| R19 | VHDL puertos std_logic, sin generics | Implementado (parcial) | `circuit/register_file.vhd` compila con `--std=02 --warn-all`; 9 puertos exactos del contrato (Fase 2) |
+| R20 | VHDL sintetizable, sin wait/after | Implementado (parcial) | `register_file` sin `wait`/`after`/ficheros/valores iniciales; testbenches sí los usan (Fase 2) |
 | R21 | tests/ cubriendo tabla de casos | Pendiente | Fase 9 |
 | R22 | Repo GitHub por Telegram | Pendiente | Entrega final |
 | R23 | smips.circ, .vhd, informe.pdf, tests/, salida-tests.txt | Pendiente | Fase 10 |
