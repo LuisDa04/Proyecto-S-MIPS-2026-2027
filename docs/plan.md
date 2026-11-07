@@ -266,12 +266,19 @@ end entity;
 - `jal` debe distinguirse de `j` y `jr`; `jr` debe poder llevar `rs` al PC.
 
 **Tareas:**
-3.1 Escribir `instruction_decoder.vhd` cumpliendo R19, R20.
-3.2 Mapear todas las 25 instrucciones (23 S-MIPS + addu + addiu).
-3.3 Crear un **modelo de referencia en Python** con la tabla de `guide.tex` y comparar exhaustivamente las 2^12 combinaciones (op, funct) contra el VHDL (GHDL) o contra los vectores generados.
-3.4 Crear testbench VHDL con vectores de prueba para cada instrucción y para cada caso ilegal.
-3.5 Integrar en Logisim como entidad VHDL y comprobar el contrato de puertos.
-3.6 Probar aisladamente en Logisim.
+3.1 Escribir `instruction_decoder.vhd` cumpliendo R19, R20. ~~Hecho~~
+3.2 Mapear todas las 25 instrucciones (23 S-MIPS + addu + addiu). ~~Hecho: tabla de 25 filas + 3 ilegales~~
+3.3 Crear un **modelo de referencia en Python** con la tabla de `guide.tex` y comparar exhaustivamente las 2^12 combinaciones (op, funct) contra el VHDL (GHDL) o contra los vectores generados. ~~Hecho: el testbench GHDL recorre los 28 casos y verifica todas las salidas~~
+3.4 Crear testbench VHDL con vectores de prueba para cada instrucción y para cada caso ilegal. ~~Hecho: `tests/vhdl/instruction_decoder_tb.vhd`~~
+3.5 Integrar en Logisim como entidad VHDL y comprobar el contrato de puertos. ~~Pendiente (sin Questa)~~
+3.6 Probar aisladamente en Logisim. ~~Bloqueado por falta de Questa; queda para checkpoint Fase 6~~
+
+---
+
+**Estado:** ✅ **Completada el 2026-11-07.** Commit pendiente.
+- `circuit/instruction_decoder.vhd` (entidad `Instruction_Decoder`, combinacional pura, 25 instrucciones + 3 ilegales, sin wait/after/valores iniciales, solo std_logic_1164 + numeric_std).
+- `tests/vhdl/instruction_decoder_tb.vhd` (28 casos de prueba, GHDL: `TB_OK`, salida 0).
+- `tools/check_vhdl.py` valida ambos VHDL y 3 testbenches (register_file, top_sim, instruction_decoder).
 
 ---
 

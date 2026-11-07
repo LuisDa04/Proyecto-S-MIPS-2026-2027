@@ -184,6 +184,35 @@ Formato sugerido por commit:
 
 ---
 
+### 2026-11-07 - Fase 3 cerrada: Instruction_Decoder VHDL y testbench (GHDL)
+
+**¿Qué se hizo?**
+- `circuit/instruction_decoder.vhd`: entidad `Instruction_Decoder` combinacional pura, 16 puertos de salida, sin estado. Decodifica `OP` (6 bits) y `FUNCT` (6 bits) según la tabla de `docs/diseno.md` §2.3: 25 instrucciones legales (23 base S-MIPS + `addu`/`addiu` alias R9) + 3 casos ilegales. `op=0` → mira `funct`; `op≠0` → mira solo `op` (R11). `ILLEGAL='1'` para pares no en tabla (R10); `0x00000000` = `sll $zero,$zero,0` legal (NOP). Codificaciones: `ALU_OP` (3 bits, 8 ops), `EXT_TYPE` (2 bits: zero/sign/shamt/branch), `MEM_SIZE` (word/byte), `BRANCH_TYPE` (none/beq/bne), `JUMP_TYPE` (none/j/jal/jr), `REG_DST` (rd/rt/$31), `MEM_TO_REG` (ALU/MDR/PC). `jal` usa `REG_DST=10` ($31) y `MEM_TO_REG=10` (PC). VHDL-2002, solo `ieee.std_logic_1164` e `ieee.numeric_std`, sin `wait`, `after`, ficheros ni valores iniciales (R19/R20).
+- `tests/vhdl/instruction_decoder_tb.vhd`: testbench funcional con 28 casos (25 legales + 3 ilegales). Cada caso establece `OP`/`FUNCT` y verifica las 17 salidas contra el valor esperado.
+- `tools/check_vhdl.py` (ya creado en Fase 2) valida ambos VHDL y los 3 testbenches.
+
+**¿Qué se probó?**
+- `python tools/check_vhdl.py --lint`: 6 archivos analizados, 3 testbenches ejecutados, salida 0. Mensajes `TB_OK`:
+  - `Instruction_Decoder funcional` (28 ns)
+  - `Register_File funcional` (411 ns)
+  - `top_sim (contrato Logisim)` (47 ns)
+- El validador comprueba R19/R20 (solo librerías permitidas, sin `wait`/`after`/valores iniciales) y el contrato de puertos del `Register_File`.
+
+**Resultados**
+- Fase 3 lista para commitear. El decodificador cubre toda la ISA S-MIPS y produce las señales que espera la FSM de `docs/diseno.md` §6–7.
+- Cosimulación con Questa sigue bloqueada; validación del contrato mediante GHDL y `check_vhdl.py`.
+
+**¿Qué queda pendiente?**
+- Fase 4: `Datapath` en Logisim (PC, IR, ALU, muxes, extension, alineación bytes).
+- Fases 5–10 según `docs/plan.md`.
+
+**Decisiones de diseño**
+- `Instruction_Decoder` puramente combinacional (sin biestables), todas las salidas se asignan en un único `process (OP, FUNCT)`.
+- Las 3 salidas de clasificación (`IS_RTYPE`, `IS_ITYPE`, `IS_JTYPE`) son mutuamente excluyentes salvo `syscall`/`jr` que son R-type.
+- `LUI_OP` redundante con `ALU_OP=111` pero mantenida por claridad en `Control_Unit`.
+
+---
+
 ### 2026-11-05 - Fase 0 cerrada: contrato Logisim↔VHDL y línea base
 
 **¿Qué se hizo?**
@@ -319,11 +348,11 @@ Formato sugerido por commit:
 | R13 | Memoria unificada, IR guarda instrucción | Diseñado | `docs/diseno.md` §5.1 y §10.7 |
 | R14 | Una sola ALU, sin otros sumadores | Diseñado | `docs/diseno.md` §4 |
 | R15 | Control_Unit = máquina de estados síncrona | Diseñado | `docs/diseno.md` §6 |
-| R16 | 6 subcircuitos con nombres exactos | Implementado (parcial) | `circuit/register_file.vhd` y subcircuito `Register_File` en Logisim; puerto verificado con `Ports.java` (Fase 2) |
+| R16 | 6 subcircuitos con nombres exactos | Implementado (parcial) | `circuit/register_file.vhd` + `circuit/instruction_decoder.vhd`; puertos verificados (Fases 2–3) |
 | R17 | Sin RAM/ROM en CPU | Diseñado | `docs/diseno.md` §10; checker en Fase 6 |
 | R18 | Máx 2 VHDL de 3 permitidos | Decidido | `Register_File` + `Instruction_Decoder`; `ALU` nativa |
-| R19 | VHDL puertos std_logic, sin generics | Implementado (parcial) | `circuit/register_file.vhd` compila con `--std=02 --warn-all`; 9 puertos exactos del contrato (Fase 2) |
-| R20 | VHDL sintetizable, sin wait/after | Implementado (parcial) | `register_file` sin `wait`/`after`/ficheros/valores iniciales; testbenches sí los usan (Fase 2) |
+| R19 | VHDL puertos std_logic, sin generics | Implementado (parcial) | Ambos VHDL compilan con `--std=02 --warn-all`; puertos exactos del contrato (Fases 2–3) |
+| R20 | VHDL sintetizable, sin wait/after | Implementado (parcial) | Entidades sin `wait`/`after`/ficheros/valores iniciales; testbenches sí los usan (Fases 2–3) |
 | R21 | tests/ cubriendo tabla de casos | Pendiente | Fase 9 |
 | R22 | Repo GitHub por Telegram | Pendiente | Entrega final |
 | R23 | smips.circ, .vhd, informe.pdf, tests/, salida-tests.txt | Pendiente | Fase 10 |
