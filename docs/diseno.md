@@ -166,7 +166,7 @@ realimentación combinacional.
 | Señal | Código | Selección |
 |---|---|---|
 | `PC_SRC` | `00` | Salida de la ALU (`PC+4` en `FETCH`). |
-| | `01` | `ALUOUT` (destino de `beq`/`bne`). |
+| | `01` | Salida combinacional de la ALU (`D_ALU_Y`, destino de `beq`/`bne`). |
 | | `10` | `JUMP_TARGET` (`{PC[31:28], IR[25:0], 00}`). |
 | | `11` | `A` (dirección de `jr`). |
 | `ALU_SRC_A` | `00` | Registro `A`. |
@@ -181,6 +181,11 @@ realimentación combinacional.
 | | `1` | Constante 4 (`$a0`, solo `syscall`). |
 | `MEM_ADDR_SEL` | `0` | `PC`. |
 | | `1` | `ALUOUT`. |
+
+`PC_SRC=01` (rama) toma la salida combinacional de la ALU, no `ALUOUT`: `PC` y
+`ALUOUT` se escriben en el mismo flanco de subida, así que `PC` leería el valor
+anterior de `ALUOUT`. El `Datapath` cablea ambos códigos a `D_ALU_Y`; la
+corrección se detalla en §8.4.
 
 ### 3.3 Señales estáticas (paso desde el decodificador)
 
@@ -240,7 +245,7 @@ reset asíncrono activo alto (R3/R6). Ninguno genera un reloj derivado.
 | `IR` | `MEM_RDATA` | Instrucción en curso durante todos sus ciclos (R13). |
 | `A` | `Register_File.RD1` | Primer operando y dirección de `jr`. |
 | `B` | `Register_File.RD2` | Segundo operando, dato de `sw`/`sb` y argumento de `syscall`. |
-| `ALUOUT` | Salida de la ALU | Resultado, dirección de memoria o destino de rama. |
+| `ALUOUT` | Salida de la ALU | Resultado y dirección de memoria. En `BRANCH` también se carga, pero el destino llega a `PC` por la salida combinacional de la ALU (§8.4). |
 | `MDR` | `MEM_RDATA` | Palabra leída de memoria para `lw`/`lb`/`lbu`. |
 
 `PC` es un registro con `Enable = PC_WRITE` y reset a 0. `IR`, `A`, `B`,
@@ -251,10 +256,13 @@ asíncrono con `$gp=0x1800` y `$sp=0x3FFC`.
 
 | `EXT_TYPE` | Salida | Uso |
 |---|---|---|
-| `00` SIGN | `SignExt(IR[15:0])` | `addi`, `addiu`, `slti`, `lw`, `sw`, `lb`, `lbu`, `sb` |
-| `01` ZERO | `ZeroExt(IR[15:0])` | `andi`, `ori`, `lui` |
-| `10` BRANCH | `SignExt(IR[15:0]) << 2` | `beq`, `bne` |
-| `11` SHAMT | `ZeroExt(IR[10:6])` | `sll`, `srl` |
+| `00` ZERO | `ZeroExt(IR[15:0])` | `andi`, `ori`, `lui` |
+| `01` SIGN | `SignExt(IR[15:0])` | `addi`, `addiu`, `slti`, `lw`, `sw`, `lb`, `lbu`, `sb` |
+| `10` SHAMT | `ZeroExt(IR[10:6])` | `sll`, `srl` |
+| `11` BRANCH | `SignExt(IR[15:0]) << 2` | `beq`, `bne` |
+
+Estos códigos coinciden con las constantes de `circuit/instruction_decoder.vhd`
+(`EXT_ZERO`, `EXT_SIGN`, `EXT_SHAMT`, `EXT_BRANCH`).
 
 El desplazamiento de `BRANCH` es concatenar dos ceros a la izquierda lógica; no
 usa ningún sumador. El de `LUI` lo aplica la propia ALU (§4).
@@ -390,7 +398,7 @@ el enable final del banco: `D` (`REG_WRITE_ENABLE`) en `WB` y `JAL` en `JUMP`.
 | `ADDR` | 0 | X | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | A | IMM | ADD | X | X | X |
 | `MEM_READ` | 0 | X | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | X | X | X | ALUOUT | X | X |
 | `MEM_WRITE` | 0 | X | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | X | X | X | ALUOUT | X | X |
-| `BRANCH` | BC | ALUOUT | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | PC | IMM | ADD | X | X | X |
+| `BRANCH` | BC | ALU | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | PC | IMM | ADD | X | X | X |
 | `JUMP` | 1 | `JT/A` | 0 | 0 | 0 | 0 | 0 | JAL | 0 | 0 | 0 | X | X | X | X | X | X |
 | `SYSCALL` | 0 | X | 0 | 0 | 0 | 0 | 0 | 0 | 0 | S11 | 0 | X | X | X | X | X | X |
 | `WB` | 0 | X | 0 | 0 | 0 | 0 | 0 | D | 0 | 0 | 0 | X | X | X | X | X | X |
@@ -445,8 +453,11 @@ estados; el Datapath solo las usa en los estados que corresponden.
 - `Branch_Control` compara `A` y `B` con un comparador de igualdad de 32 bits.
 - `PC_WRITE_BRANCH = BRANCH_ENABLE AND ((BRANCH_TYPE=01 AND EQ) OR
   (BRANCH_TYPE=10 AND NOT EQ))`.
-- El destino se calcula en la ALU como `PC + (SignExt(imm)<<2)` y se guarda en
-  `ALUOUT`; si la rama no se toma, `PC_WRITE=0` y `PC` no cambia.
+- El destino se calcula en la ALU como `PC + (SignExt(imm)<<2)` y se presenta
+  combinacionalmente a la entrada de `PC` (`PC_SRC=01` selecciona `D_ALU_Y`,
+  no `ALUOUT`). `PC` y `ALUOUT` comparten flanco: si `PC` leyese `ALUOUT`
+  capturaría el destino de la rama anterior. Si la rama no se toma,
+  `PC_WRITE=0` y `PC` no cambia.
 - `PC` ya es `PC+4`, así que la fórmula coincide con la del enunciado.
 
 ### 8.5 `lb`, `lbu`, `sb` y `sw`

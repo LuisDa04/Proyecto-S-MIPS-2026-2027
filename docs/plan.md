@@ -93,7 +93,8 @@ Los circuitos se generan desde Python con el mismo patrón de dos fases que ya u
 
 ```text
 python tools/build.py             # placa base (Board + Memory)
-python tools/gen_*.py             # circuitos de la CPU por bloque
+python tools/gen_datapath.py      # ALU + Datapath en circuit/smips.circ (Fase 4)
+python tools/gen_*.py             # resto de circuitos de la CPU por bloque
 python tools/check_circuit.py     # invariantes antes de simular
 python tools/smoke_circuitlib.py  # prueba de humo del generador
 
@@ -320,6 +321,21 @@ end entity;
 4.4 Verificar que no haya RAM/ROM dentro de CPU (R17).
 4.5 Verificar que todos los elementos secuenciales usen CLK directo (R3).
 4.6 Verificar una a una las trampas anteriores antes de pasar a la Fase 5.
+
+---
+
+**Estado:** 🟡 **Parcial — estructura completa, verificación funcional pendiente (2026-11-08).**
+- `circuit/smips.circ` contiene los subcircuitos `ALU` y `Datapath`, más la entidad VHDL `Register_File` embebida. `Board`, `Memory` y los 10 pines de `CPU` no se tocaron (R2; `git diff` sin líneas eliminadas).
+- `Datapath` tiene los 32 pines de §10.4 y contiene una instancia de `Register_File` (VHDL propio, no el del repo guía) y una única instancia de `ALU` (R14/R16).
+- Se eliminaron del diseño guía el `Decoder` con ROM (R17) y la `Memory` interna (R13/R17); `ALU_OP` llega como pin desde el `Instruction_Decoder`.
+- La `ALU` se reconstruyó en Logisim nativo con las 8 operaciones del contrato y `ZERO`; se verificó con valores conocidos, incluido `slt` con signo (`INT_MIN < INT_MAX → 1`).
+- Correcciones de diseño respecto a `docs/diseno.md`:
+  - La tabla de `EXT_TYPE` de §5.2 estaba invertida; los códigos reales son `00 ZERO`, `01 SIGN`, `10 SHAMT`, `11 BRANCH`.
+  - `PC_SRC=01` (rama) selecciona la salida combinacional de la ALU (`D_ALU_Y`), no `ALUOUT`, porque `PC` y `ALUOUT` capturan en el mismo flanco (§3.2/§7/§8.4 corregidos).
+- Validación estructural: el `.circ` carga en Logisim headless sin avisos; 218 cables, 218 túneles, 81 etiquetas, sin anchos inconsistentes, sin túneles solapados ni huérfanos y sin puertos de componente sin cable.
+- Reproducible: `python tools/gen_datapath.py` reconstruye `ALU`, embebe `circuit/register_file.vhd` y fusiona ambos circuitos en `circuit/smips.circ` preservando `Board`, `Memory`, `CPU` y `<main>`; el resultado es idéntico al validado.
+- Pendiente: no hay Questa en el equipo, así que `Register_File` no se puede cosimular dentro de Logisim; la verificación funcional del `Datapath` completo queda para la Fase 6/7. `tools/check_circuit.py` en modo completo seguirá fallando hasta que existan `Control_Unit`, `Branch_Control` y el cableado de `CPU` (hoy solo pasa `--base`).
+- `JUMP_TYPE` se mantiene como pin del contrato §10.4 pero no se usa internamente: `PC_SRC` ya codifica `j`/`jal`/`jr`. Queda como entrada sin cable, sin efecto en la simulación.
 
 ---
 
@@ -590,7 +606,7 @@ python3 tools/run_tests.py
 ## Anexo A: Análisis del Repositorio Guía
 
 **Repositorio:** `https://github.com/luisiafk/Proyecto-S-MIPS-2026-2027`
-**Commit analizado:** `57c67b6` (2026-11-04), *"implementacion del decoder, y volviendo a hacer la FSM"*.
+**Commit analizado:** `e518e22` (última revisión consultada el 2026-11-08).
 **Contenido:** 8 commits (7 de implementación); solo añade `circuit/REGFILE.vhd` y `circuit/smips.circ`. **No** tiene `tests/`, `informe.pdf` ni `salida-tests.txt`: no es una entrega ni una solución validada.
 
 **Regla de uso:** referencia de intención y estructura, **nunca fuente de código para copiar**.
@@ -625,6 +641,7 @@ python3 tools/run_tests.py
 - La arquitectura conceptual del repo guía es correcta; sus fallos son de **integración y verificación**, no de planteamiento.
 - Los errores más caros (R16, R17) son de **admisión**: se detectan revisando nombres y presencia de RAM/ROM antes de simular.
 - El VHDL del banco de registros es el único artefacto que se puede reutilizar con confianza, y aun así requiere limpieza de comentarios y un testbench espejo.
+- **Decisión del 2026-11-08:** por indicación explícita, se adaptó la *topología* del `Datapath` guía al contrato propio y se regeneró con `tools/circuitlib.py`. No se copiaron su `register_file.vhd` (se usa el de la Fase 2), su `ALU` (reconstruida), su `FSM` ni su `Decoder` con ROM. El repo guía solo se usó en lectura.
 
 ---
 

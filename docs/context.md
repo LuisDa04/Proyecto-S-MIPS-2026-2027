@@ -15,9 +15,9 @@ Registro de contexto y progreso. Debe actualizarse en cada commit con:
 
 | Elemento | Estado | Observaciones |
 |----------|--------|---------------|
-| `circuit/smips.circ` | Vacío (solo pines de CPU) | CPU sin implementar |
-| `circuit/register_file.vhd` | No existe | Pendiente (Fase 2) |
-| `circuit/instruction_decoder.vhd` | No existe | Pendiente (Fase 3) |
+| `circuit/smips.circ` | Board + CPU vacía + Memory + `ALU` + `Datapath` | Fase 4; CPU aún sin cablear (Fase 6) |
+| `circuit/register_file.vhd` | Implementado | Fase 2; validado con GHDL |
+| `circuit/instruction_decoder.vhd` | Implementado | Fase 3; validado con GHDL |
 | `programs/*.asm` | 7 programas | Hello, arithmetic, memory, branches, gcd, multiply, array_sum |
 | `images/*.hex` | Ya generados | Imágenes de ejemplo |
 | `tests/` | No existe | Pendiente (Fase 9) - R21 |
@@ -49,13 +49,13 @@ Registro de contexto y progreso. Debe actualizarse en cada commit con:
 | Campo | Valor |
 |---|---|
 | URL | `https://github.com/luisiafk/Proyecto-S-MIPS-2026-2027` |
-| Commit | `57c67b6` (2026-11-04) |
+| Commit | `e518e22` (última revisión consultada el 2026-11-08) |
 | Contenido | `circuit/REGFILE.vhd`, `circuit/smips.circ` (4036 líneas) |
 | Ausente | `tests/`, `informe.pdf`, `salida-tests.txt` |
 | Veredicto | Prototipo en progreso; no es entrega ni solución validada |
-| Uso | Referencia de intención; **no copiar** |
+| Uso | Referencia de intención; solo lectura |
 
-**Reutilizable:** conjunto de señales de control, registros intermedios PC/IR/A/B/ALUOUT/MDR, ecuación de `Branch_Control`, tabla de opcodes/functs, codificación ALU de 3 bits y el `register_file` VHDL (validado con GHDL 6.0.0 `--std=02 --warn-all`).
+**Reutilizable:** conjunto de señales de control, registros intermedios PC/IR/A/B/ALUOUT/MDR, ecuación de `Branch_Control`, tabla de opcodes/functs y codificación ALU de 3 bits. Su `register_file` VHDL se analizó pero **no se adoptó**: el proyecto usa el de la Fase 2.
 
 **Defectos bloqueantes detectados:**
 - ROM dentro de la CPU (R17) en el subcircuito `Decoder`, instanciado en `Datapath`.
@@ -213,6 +213,44 @@ Formato sugerido por commit:
 
 ---
 
+### 2026-11-08 - Fase 4: Datapath Logisim adaptado al contrato
+
+**¿Qué se hizo?**
+- Se descartó el `Datapath` generado anteriormente y se reconstruyó con `tools/circuitlib.py`, tomando como referencia la *topología* del `Datapath` del repo guía (commit `e518e22`) y adaptándola a `docs/diseno.md` §10.4. El proceso quedó como script reproducible en `tools/gen_datapath.py`.
+- `circuit/smips.circ` ahora contiene los subcircuitos `ALU` y `Datapath` y la entidad VHDL `Register_File` embebida. `Board`, `Memory` y los 10 pines de `CPU` no se tocaron (R2).
+- `ALU` nativa con 8 operaciones (`ADD`, `SUB`, `AND`, `OR`, `SLT` con signo, `SLL`, `SRL`, `LUI`) y `ZERO = (Y == 0)`; sin `CLK` y sin ROM.
+- `Datapath` con PC, IR, A, B, ALUOUT y MDR; `Register_File` VHDL propio (Fase 2), muxes de operandos/destino/writeback, extensión de inmediato, `lui`, `PC+4`, `JUMP_TARGET`, carriles de byte y `MEM_BE`.
+- Se eliminaron del diseño guía el `Decoder` con ROM (R17) y la `Memory` interna (R13/R17); `ALU_OP` entra como pin desde el `Instruction_Decoder`.
+
+**¿Qué se probó?**
+- `ALU`: valores conocidos para las 8 operaciones, incluidos `slt` con signo (`-5 < 3 → 1`, `5 < -3 → 0`, `INT_MAX < INT_MIN → 0`, `INT_MIN < INT_MAX → 1`) y `ZERO`.
+- `Datapath`: carga headless con Logisim 5.0.0 (`Ports.java`, salida 0). 218 cables, 218 túneles, 81 etiquetas, sin anchos inconsistentes, sin túneles solapados/huérfanos y sin puertos de componente sin cable.
+- Los 32 pines del `Datapath` coinciden con §10.4 (24 entradas + 8 salidas); `Register_File` conserva sus 9 puertos y la instancia `ALU` sus 5.
+- `python tools/check_circuit.py circuit/smips.circ --base` → `OK: 0 aviso(s), sin errores`.
+- `git diff circuit/smips.circ` no elimina líneas: `Board`, `CPU` y `Memory` quedan intactos.
+
+**Resultados**
+- Estructura del `Datapath` completa y cargable. La adaptación corrige los defectos bloqueantes del repo guía sin copiar su banco de registros, su ALU ni su control.
+
+**Problemas y soluciones**
+- Los `Splitter` con `fanout=1` reportaban 32 bits si no se declaraban todos los atributos `bitN`; los túneles quedaban con anchos inconsistentes (2/4/5/26 bits mezclados con 32). Solución: emitir los 32 `bitN` con `none` en los no usados y fusionar rangos en una sola llamada.
+- `PC_SRC=01` no puede leer `ALUOUT`: `PC` y `ALUOUT` capturan en el mismo flanco y `PC` vería el destino anterior. Solución: `PC_SRC=00` y `01` seleccionan ambos `D_ALU_Y`; documentado en `docs/diseno.md` §3.2/§5.1/§7/§8.4.
+- La tabla `EXT_TYPE` de `docs/diseno.md` §5.2 estaba invertida respecto a `instruction_decoder.vhd`; corregida a `00 ZERO`, `01 SIGN`, `10 SHAMT`, `11 BRANCH`.
+- `JUMP_TYPE` se mantiene por contrato pero no se usa internamente: `PC_SRC` ya codifica `j`/`jal`/`jr`. Es la única entrada sin cable del `Datapath`.
+
+**¿Qué queda pendiente?**
+- Fase 5: `Control_Unit` y `Branch_Control`.
+- Fase 6: cablear la `CPU` con los seis subcircuitos.
+- Verificación funcional del `Datapath` completo y cosimulación VHDL: bloqueadas por falta de Questa.
+- `tools/check_circuit.py` sin `--base` seguirá fallando hasta que existan los subcircuitos de control y el cableado de `CPU`.
+
+**Decisiones de diseño**
+- Se adapta la topología del repo guía, pero se reescribe con `circuitlib` y se usa el `Register_File` propio; no se copia VHDL, ALU ni FSM del repo guía.
+- `MEM_BE` se genera en el `Datapath` a partir de `MEM_SIZE`, `ALUOUT[1:0]` y `MEM_WE`, como fija §5.4.
+- `TTY_DATA = B[6:0]` (sin registro adicional), tal como espera el `Board`.
+
+---
+
 ### 2026-11-05 - Fase 0 cerrada: contrato Logisim↔VHDL y línea base
 
 **¿Qué se hizo?**
@@ -334,7 +372,7 @@ Formato sugerido por commit:
 | Req | Descripción | Estado | Evidencia |
 |-----|-------------|--------|-----------|
 | R1 | CPU en smips.circ, Logisim 5.0.0 | Pendiente | Logisim 5.0.0 + Java 21 verificados (Fase 0); diseño en `docs/diseno.md` |
-| R2 | No modificar Board/Memory/pines CPU | Pendiente | Regla activa; comprobar en cada commit |
+| R2 | No modificar Board/Memory/pines CPU | Verificado (parcial) | `check_circuit.py --base` OK; `git diff` de `smips.circ` solo añade circuitos (Fase 4) |
 | R3 | Secuenciales en flanco CLK, sin relojes derivados | Diseñado | `docs/diseno.md` §5.1 y §6.3 |
 | R4 | TTY_WE = 1 un ciclo por carácter | Diseñado | `docs/diseno.md` §8.1 |
 | R5 | MEM_WE = 1 solo en sw/sb | Diseñado | `docs/diseno.md` §6.2 y §7 |
@@ -346,10 +384,10 @@ Formato sugerido por commit:
 | R11 | Identificación solo por op/funct | Diseñado | `docs/diseno.md` §2.1 |
 | R12 | Multiciclo, una instrucción a la vez | Diseñado | `docs/diseno.md` §6 y §9: 3–5 ciclos |
 | R13 | Memoria unificada, IR guarda instrucción | Diseñado | `docs/diseno.md` §5.1 y §10.7 |
-| R14 | Una sola ALU, sin otros sumadores | Diseñado | `docs/diseno.md` §4 |
+| R14 | Una sola ALU, sin otros sumadores | Implementado (parcial) | `Datapath` instancia una única `ALU`, reconstruida sin ROM (Fase 4) |
 | R15 | Control_Unit = máquina de estados síncrona | Diseñado | `docs/diseno.md` §6 |
-| R16 | 6 subcircuitos con nombres exactos | Implementado (parcial) | `circuit/register_file.vhd` + `circuit/instruction_decoder.vhd`; puertos verificados (Fases 2–3) |
-| R17 | Sin RAM/ROM en CPU | Diseñado | `docs/diseno.md` §10; checker en Fase 6 |
+| R16 | 6 subcircuitos con nombres exactos | Implementado (parcial) | `Register_File`, `Instruction_Decoder`, `ALU` y `Datapath` existen; faltan `Control_Unit`, `Branch_Control` y el cableado de `CPU` (Fases 2–5) |
+| R17 | Sin RAM/ROM en CPU | Implementado (parcial) | `ALU` y `Datapath` sin RAM/ROM; se eliminó el `Decoder` con ROM del repo guía (Fase 4) |
 | R18 | Máx 2 VHDL de 3 permitidos | Decidido | `Register_File` + `Instruction_Decoder`; `ALU` nativa |
 | R19 | VHDL puertos std_logic, sin generics | Implementado (parcial) | Ambos VHDL compilan con `--std=02 --warn-all`; puertos exactos del contrato (Fases 2–3) |
 | R20 | VHDL sintetizable, sin wait/after | Implementado (parcial) | Entidades sin `wait`/`after`/ficheros/valores iniciales; testbenches sí los usan (Fases 2–3) |
@@ -361,16 +399,16 @@ Formato sugerido por commit:
 
 ## Próximos Pasos Inmediatos
 
-**Estado:** Fases 0 y 1 completadas (entorno, contrato Logisim↔VHDL, línea base y diseño). El siguiente hito es la Fase 2.
+**Estado:** Fases 0–4 completadas (entorno, contrato Logisim↔VHDL, diseño, ambos VHDL y `Datapath`). El siguiente hito es la Fase 5 (`Control_Unit` + `Branch_Control`).
 
 1. ~~Fase 0: verificar entorno, capturar el wrapper/testbench de Logisim y documentar el contrato Logisim↔VHDL.~~ Hecha.
 2. ~~Fase 1: diseño, tabla de estados y matriz de trazabilidad R1–R23.~~ Hecha; ver `docs/diseno.md`.
-3. Fase 2: implementar `register_file.vhd` + testbench funcional + testbench espejo (GHDL).
-4. Fase 3: implementar `instruction_decoder.vhd` + modelo de referencia en Python (GHDL).
-5. Fase 4-6: Datapath, Control_Unit, Branch_Control e integración CPU en Logisim; **checkpoint** de integración VHDL.
-6. Fase 7-8: testeo modular y general.
-7. Fase 9: crear `tests/` propios cubriendo R21.
-8. Fase 10: informe, `salida-tests.txt`, entrega en GitHub.
+3. ~~Fase 2: implementar `register_file.vhd` + testbench funcional + testbench espejo (GHDL).~~ Hecha.
+4. ~~Fase 3: implementar `instruction_decoder.vhd` + modelo de referencia en Python (GHDL).~~ Hecha.
+5. ~~Fase 4: `Datapath` en Logisim con `ALU` y `Register_File`.~~ Estructura hecha; verificación funcional pendiente de Questa.
+6. Fase 5: `Control_Unit` y `Branch_Control` en Logisim.
+7. Fase 6: integración de la `CPU` y **checkpoint** de integración VHDL.
+8. Fases 7–10: testeo modular/general, `tests/` propios, informe y entrega.
 
 ---
 
@@ -399,6 +437,7 @@ bash open.sh
 
 # Generador de circuitos: prueba de humo y verificador
 python tools/smoke_circuitlib.py
+python tools/gen_datapath.py      # regenera ALU + Datapath en circuit/smips.circ
 python tools/check_circuit.py circuit/smips.circ --base
 
 # Circuito de prueba: generar y simular su tabla de verdad en Logisim
