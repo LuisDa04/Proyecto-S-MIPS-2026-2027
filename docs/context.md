@@ -371,8 +371,8 @@ Formato sugerido por commit:
 
 | Req | Descripción | Estado | Evidencia |
 |-----|-------------|--------|-----------|
-| R1 | CPU en smips.circ, Logisim 5.0.0 | Pendiente | Logisim 5.0.0 + Java 21 verificados (Fase 0); diseño en `docs/diseno.md` |
-| R2 | No modificar Board/Memory/pines CPU | Verificado (parcial) | `check_circuit.py --base` OK; `git diff` de `smips.circ` solo añade circuitos (Fase 4) |
+| R1 | CPU en smips.circ, Logisim 5.0.0 | Implementado (parcial) | CPU con 6 subcircuitos instanciados; pines conectados; cableado interno pendiente |
+| R2 | No modificar Board/Memory/pines CPU | Verificado | `check_circuit.py` OK; `git diff` de `smips.circ` solo añade circuitos internos de CPU |
 | R3 | Secuenciales en flanco CLK, sin relojes derivados | Diseñado | `docs/diseno.md` §5.1 y §6.3 |
 | R4 | TTY_WE = 1 un ciclo por carácter | Diseñado | `docs/diseno.md` §8.1 |
 | R5 | MEM_WE = 1 solo en sw/sb | Diseñado | `docs/diseno.md` §6.2 y §7 |
@@ -386,7 +386,7 @@ Formato sugerido por commit:
 | R13 | Memoria unificada, IR guarda instrucción | Diseñado | `docs/diseno.md` §5.1 y §10.7 |
 | R14 | Una sola ALU, sin otros sumadores | Implementado (parcial) | `Datapath` instancia una única `ALU`, reconstruida sin ROM (Fase 4) |
 | R15 | Control_Unit = máquina de estados síncrona | Diseñado | `docs/diseno.md` §6 |
-| R16 | 6 subcircuitos con nombres exactos | Implementado (parcial) | `Register_File`, `Instruction_Decoder`, `ALU` y `Datapath` existen; faltan `Control_Unit`, `Branch_Control` y el cableado de `CPU` (Fases 2–5) |
+| R16 | 6 subcircuitos con nombres exactos | Implementado (parcial) | `Register_File`, `Instruction_Decoder`, `ALU`, `Datapath`, `Control_Unit`, `Branch_Control` existen; `CPU` los instancia; cableado interno pendiente |
 | R17 | Sin RAM/ROM en CPU | Implementado (parcial) | `ALU` y `Datapath` sin RAM/ROM; se eliminó el `Decoder` con ROM del repo guía (Fase 4) |
 | R18 | Máx 2 VHDL de 3 permitidos | Decidido | `Register_File` + `Instruction_Decoder`; `ALU` nativa |
 | R19 | VHDL puertos std_logic, sin generics | Implementado (parcial) | Ambos VHDL compilan con `--std=02 --warn-all`; puertos exactos del contrato (Fases 2–3) |
@@ -399,16 +399,17 @@ Formato sugerido por commit:
 
 ## Próximos Pasos Inmediatos
 
-**Estado:** Fases 0–4 completadas (entorno, contrato Logisim↔VHDL, diseño, ambos VHDL y `Datapath`). El siguiente hito es la Fase 5 (`Control_Unit` + `Branch_Control`).
+**Estado:** Fases 0–5 completadas (entorno, contrato Logisim↔VHDL, diseño, ambos VHDL, Datapath, Control_Unit, Branch_Control). Fase 6 en curso: CPU tiene todos los subcircuitos internos instanciados (Instruction_Decoder, Control_Unit, Branch_Control, Datapath) y pines de CPU conectados a túneles, pero falta el cableado interno entre componentes. `check_circuit.py` completo pasa (sin errores, solo avisos de túneles huérfanos).
 
 1. ~~Fase 0: verificar entorno, capturar el wrapper/testbench de Logisim y documentar el contrato Logisim↔VHDL.~~ Hecha.
 2. ~~Fase 1: diseño, tabla de estados y matriz de trazabilidad R1–R23.~~ Hecha; ver `docs/diseno.md`.
 3. ~~Fase 2: implementar `register_file.vhd` + testbench funcional + testbench espejo (GHDL).~~ Hecha.
 4. ~~Fase 3: implementar `instruction_decoder.vhd` + modelo de referencia en Python (GHDL).~~ Hecha.
 5. ~~Fase 4: `Datapath` en Logisim con `ALU` y `Register_File`.~~ Estructura hecha; verificación funcional pendiente de Questa.
-6. Fase 5: `Control_Unit` y `Branch_Control` en Logisim.
-7. Fase 6: integración de la `CPU` y **checkpoint** de integración VHDL.
-8. Fases 7–10: testeo modular/general, `tests/` propios, informe y entrega.
+6. ~~Fase 5: `Control_Unit` y `Branch_Control` en Logisim.~~ Hecha; fusionados en `circuit/smips.circ`.
+7. Fase 6: integración de la `CPU` — componentes instanciados, pines conectados; **pendiente: cableado interno entre componentes** (bloqueado: `discover_ports` no carga `.circ` con componentes dentro de `CPU`; se puede completar manualmente en Logisim).
+8. ~~Fase 6 checkpoint: integración VHDL.~~ Diferida (sin Questa); contingencia 100 % Logisim.
+9. Fases 7–10: testeo modular/general, `tests/` propios, informe y entrega.
 
 ---
 
