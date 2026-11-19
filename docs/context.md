@@ -39,15 +39,16 @@ Evidencia real con Logisim-evolution 5.0.0:
 
 | Elemento | Estado | Observaciones |
 |----------|--------|---------------|
-| `circuit/smips.circ` | Board + CPU vacía + Memory + `ALU` + `Datapath` | Fase 4; CPU aún sin cablear (Fase 6) |
+| `circuit/smips.circ` | Board + CPU cableada + Memory + 6 subcircuitos (`Instruction_Decoder`, `Control_Unit`, `Branch_Control`, `Datapath`, `Register_File`, `ALU`) | Fase 6 completada; 7/7 programas verificados (2026-11-18) |
 | `circuit/register_file.vhd` | Implementado | Fase 2; validado con GHDL |
 | `circuit/instruction_decoder.vhd` | Implementado | Fase 3; validado con GHDL |
-| `programs/*.asm` | 7 programas | Hello, arithmetic, memory, branches, gcd, multiply, array_sum |
-| `images/*.hex` | Ya generados | Imágenes de ejemplo |
-| `tests/` | No existe | Pendiente (Fase 9) - R21 |
+| `programs/*.asm` | 7 programas | Hello, arithmetic, memory, branches, gcd, multiply, array_sum; todos OK |
+| `images/*.hex` | 4 imágenes | hello, gcd, multiply, array_sum |
+| `tests/vhdl/` | 3 testbenches | Register_File, Instruction_Decoder y top_sim; `check_vhdl.py` OK. Fase 9 (casos E2E propios) pendiente - R21 |
 | `informe.pdf` | No existe | Pendiente (Fase 10) - R23 |
 | `salida-tests.txt` | No existe | Pendiente (Fase 10) |
 | `docs/plan.md` | Creado | Plan en 10 fases + Fase 0 + Anexo A |
+| `docs/plan/smips-analisis-parte1..4.md` | Reescritos | Tutorial de uso, testeo y explicación del circuito (4 partes) |
 | `docs/diseno.md` | Creado | Diseño de Fase 1: ISA, control, FSM, interfaces y matriz R1–R23 |
 | `docs/contrato-logisim/` | Creado | Wrapper y scripts Tcl capturados de Logisim 5.0.0 |
 | `docs/context.md` | Creado | Este archivo |
@@ -60,11 +61,11 @@ Evidencia real con Logisim-evolution 5.0.0:
 |---|---|---|---|
 | Java | OpenJDK 21.0.13 (Temurin) | OK | Requerido por Logisim, MARS y los scripts |
 | Logisim-Evolution | 5.0.0 (`C:\Program Files\logisim-evolution\app\logisim-evolution-5.0.0-all.jar`) | OK | `LOGISIM_JAR` |
-| MARS | 4.5 (`D:\EscuelaLuisi\AC\Mars4_5.jar`) | OK | `MARS_JAR` |
+| MARS | 4.5 (`D:\EscuelaLuisi\AC\Mars4_5.jar`) | OK | `MARS_JAR` debe apuntar a esta ruta; la sesión tenía una ruta inexistente |
 | GHDL | 6.0.0 (`D:\EscuelaLuisi\AC\GHDL\bin\ghdl.exe`) | OK | No está en `PATH`; usar `--std=02` |
-| Questa / ModelSim | No instalado | **BLOQUEANTE** | `QUESTA_BIN` y `SALT_LICENSE_SERVER` vacíos; `vsim` no existe |
+| Questa / ModelSim | No instalado | No bloquea la placa | `QUESTA_BIN` y `SALT_LICENSE_SERVER` vacíos; `vsim` no existe |
 
-**Consecuencia:** `tools/run_tests.py` no puede ejecutar circuitos con entidades VHDL (`tools/Run.java:88-92` aborta con `Questa no arranco`). GHDL valida el VHDL por separado; la cosimulación queda **diferida** hasta que haya Questa o hasta el checkpoint de la Fase 6.
+**Consecuencia:** como `circuit/smips.circ` no contiene entidades VHDL, `tools/Run.java` y `tools/run_tests.py` **sí ejecutan la placa completa** sin Questa (`Run.java:88` solo arranca Questa si hay VHDL). Questa sigue siendo necesario únicamente para la cosimulación real de `register_file.vhd` e `instruction_decoder.vhd`; esos archivos se validan por separado con GHDL + `tools/check_vhdl.py`.
 
 ---
 
@@ -98,11 +99,11 @@ Detalle completo y evidencia en `docs/plan.md`, Anexo A.
 
 | Riesgo | Impacto | Mitigación |
 |---|---|---|
-| Questa no instalado | No se puede validar la integración VHDL con `run_tests.py` | GHDL + testbench espejo; checkpoint Fase 6; contingencia 100 % Logisim |
-| R16 (nombres) y R17 (RAM/ROM) | No evaluable / bloqueante | Diseño en Fase 1; revisión en Fase 6; sin ROM para FSM ni ALU |
-| Límite de 60 000 ciclos | Programas largos abortan | 3-5 ciclos por instrucción; medir en Fase 8 |
-| Carriles de byte (`lb`/`lbu`/`sb`) | Salida distinta a MARS | Pruebas dedicadas en Fase 7 y Fase 9 |
-| Reset no cableado | `$gp`/`$sp` incorrectos | Puerto `RESET` en `Datapath`; prueba en Fase 7 |
+| Questa no instalado | No se puede cosimular la integración VHDL real | No afecta la placa (sin VHDL en `.circ`); GHDL + testbench espejo validan los `.vhd` |
+| R16 (nombres) y R17 (RAM/ROM) | Resuelto | Los 6 subcircuitos existen con los nombres exactos; no hay RAM/ROM dentro de `CPU` |
+| Límite de 60 000 ciclos | Programas muy largos podrían abortar | Medido: el peor caso actual usa 6475 ciclos; margen suficiente |
+| Carriles de byte (`lb`/`lbu`/`sb`) | Salida distinta a MARS | `programs/memory.asm` y `programs/array_sum.asm` pasan; ampliar casos en Fase 9 |
+| Reset | Prefijar `$gp`/`$sp` | Implementado; verificado en los 7 programas |
 
 ---
 
@@ -144,6 +145,32 @@ Formato sugerido por commit:
 ### Decisiones de diseño
 - ...
 ```
+
+---
+
+### 2026-11-18 - Verificación funcional completa: Fase 6 cerrada
+
+**¿Qué se hizo?**
+- Revisión a fondo de `circuit/smips.circ` tras una conclusión errónea del MCP: `circuit_inspect` reportó los 65 nets de `CPU` sin driver porque no resuelve túneles. El XML confirma 132 túneles, 75 cables y 4 subcircuitos instanciados (`circuit/smips.circ:315-974`).
+- Corrección de este `context.md`: estado real de la CPU, de MARS y de Questa; tabla de requisitos y próximos pasos actualizados.
+- Los cuatro `docs/plan/smips-analisis-parte*.md` se convierten en tutorial de uso, testeo y explicación del circuito; se documenta la dualidad entre el diseño normativo (FSM de 12 estados, señales codificadas, VHDL) y el circuito de producción (FSM de 15 estados útiles, señales `Is*`, sin VHDL). No se hicieron commits.
+
+**¿Qué se probó?**
+- `tools/Run.java` sobre `images/hello.hex`: `HALT=true`, 295 ciclos, TTY `Hola, S-MIPS`.
+- `python tools/run_tests.py` con `$env:MARS_JAR='D:\EscuelaLuisi\AC\Mars4_5.jar'`: **7/7 correctos**, todos con `HALT=1` y salida idéntica a MARS.
+- `python tools/check_circuit.py circuit/smips.circ`: `OK: 13 aviso(s), sin errores`.
+- `logisim_info`: Logisim-evolution v5.0.0 con motor `--test-vector`.
+
+**Resultados**
+- La CPU multiciclo está terminada y funciona: arithmetic 6475, array_sum 890, branches 909, gcd 2752, hello 295, memory 4934 y multiply 1911 ciclos.
+- No se necesita Questa para la placa porque el `.circ` no contiene entidades VHDL.
+
+**Problemas y soluciones**
+- `MARS_JAR` apuntaba a `C:\Users\enrique\Herramientas\Mars4_5.jar` (inexistente); ruta correcta: `D:\EscuelaLuisi\AC\Mars4_5.jar`.
+- `circuit_simulate`/`circuit_truth_table`/`circuit_lint` del MCP dan falsos positivos en este diseño; se sustituyen por `Run.java`/`run_tests.py` como evidencia funcional.
+
+**Decisiones de diseño**
+- Ninguna nueva; se corrige la documentación, no el circuito.
 
 ---
 
@@ -395,7 +422,7 @@ Formato sugerido por commit:
 
 | Req | Descripción | Estado | Evidencia |
 |-----|-------------|--------|-----------|
-| R1 | CPU en smips.circ, Logisim 5.0.0 | Implementado (parcial) | CPU con 6 subcircuitos instanciados; pines conectados; cableado interno pendiente |
+| R1 | CPU en smips.circ, Logisim 5.0.0 | Verificado | CPU cableada, 7/7 programas con `HALT=1` y TTY idéntico a MARS (2026-11-18) |
 | R2 | No modificar Board/Memory/pines CPU | Verificado | `check_circuit.py` OK; `git diff` de `smips.circ` solo añade circuitos internos de CPU |
 | R3 | Secuenciales en flanco CLK, sin relojes derivados | Diseñado | `docs/diseno.md` §5.1 y §6.3 |
 | R4 | TTY_WE = 1 un ciclo por carácter | Diseñado | `docs/diseno.md` §8.1 |
@@ -410,8 +437,8 @@ Formato sugerido por commit:
 | R13 | Memoria unificada, IR guarda instrucción | Diseñado | `docs/diseno.md` §5.1 y §10.7 |
 | R14 | Una sola ALU, sin otros sumadores | Implementado (parcial) | `Datapath` instancia una única `ALU`, reconstruida sin ROM (Fase 4) |
 | R15 | Control_Unit = máquina de estados síncrona | Diseñado | `docs/diseno.md` §6 |
-| R16 | 6 subcircuitos con nombres exactos | Implementado (parcial) | `Register_File`, `Instruction_Decoder`, `ALU`, `Datapath`, `Control_Unit`, `Branch_Control` existen; `CPU` los instancia; cableado interno pendiente |
-| R17 | Sin RAM/ROM en CPU | Implementado (parcial) | `ALU` y `Datapath` sin RAM/ROM; se eliminó el `Decoder` con ROM del repo guía (Fase 4) |
+| R16 | 6 subcircuitos con nombres exactos | Verificado | Los 6 existen y están instanciados; `check_circuit.py` sin errores |
+| R17 | Sin RAM/ROM en CPU | Verificado | `ALU` y `Datapath` sin RAM/ROM; se eliminó el `Decoder` con ROM del repo guía (Fase 4) |
 | R18 | Máx 2 VHDL de 3 permitidos | Decidido | `Register_File` + `Instruction_Decoder`; `ALU` nativa |
 | R19 | VHDL puertos std_logic, sin generics | Implementado (parcial) | Ambos VHDL compilan con `--std=02 --warn-all`; puertos exactos del contrato (Fases 2–3) |
 | R20 | VHDL sintetizable, sin wait/after | Implementado (parcial) | Entidades sin `wait`/`after`/ficheros/valores iniciales; testbenches sí los usan (Fases 2–3) |
@@ -423,17 +450,17 @@ Formato sugerido por commit:
 
 ## Próximos Pasos Inmediatos
 
-**Estado:** Fases 0–5 completadas (entorno, contrato Logisim↔VHDL, diseño, ambos VHDL, Datapath, Control_Unit, Branch_Control). Fase 6 en curso: CPU tiene todos los subcircuitos internos instanciados (Instruction_Decoder, Control_Unit, Branch_Control, Datapath) y pines de CPU conectados a túneles, pero falta el cableado interno entre componentes. `check_circuit.py` completo pasa (sin errores, solo avisos de túneles huérfanos).
+**Estado (2026-11-18):** Fases 0–6 completadas. La `CPU` está cableada y verificada: `run_tests.py` da **7/7 correctos** y `check_circuit.py` pasa sin errores. Quedan la verificación modular ampliada (Fase 7), los casos E2E propios en `tests/` (Fase 9, R21), el informe y los artefactos finales (Fase 10, R23), y la publicación (R22).
 
 1. ~~Fase 0: verificar entorno, capturar el wrapper/testbench de Logisim y documentar el contrato Logisim↔VHDL.~~ Hecha.
 2. ~~Fase 1: diseño, tabla de estados y matriz de trazabilidad R1–R23.~~ Hecha; ver `docs/diseno.md`.
 3. ~~Fase 2: implementar `register_file.vhd` + testbench funcional + testbench espejo (GHDL).~~ Hecha.
 4. ~~Fase 3: implementar `instruction_decoder.vhd` + modelo de referencia en Python (GHDL).~~ Hecha.
-5. ~~Fase 4: `Datapath` en Logisim con `ALU` y `Register_File`.~~ Estructura hecha; verificación funcional pendiente de Questa.
+5. ~~Fase 4: `Datapath` en Logisim con `ALU` y `Register_File`.~~ Hecha y verificada con los 7 programas; Questa no es necesario (sin VHDL en el `.circ`).
 6. ~~Fase 5: `Control_Unit` y `Branch_Control` en Logisim.~~ Hecha; fusionados en `circuit/smips.circ`.
-7. Fase 6: integración de la `CPU` — componentes instanciados, pines conectados; **pendiente: cableado interno entre componentes** (bloqueado: `discover_ports` no carga `.circ` con componentes dentro de `CPU`; se puede completar manualmente en Logisim).
-8. ~~Fase 6 checkpoint: integración VHDL.~~ Diferida (sin Questa); contingencia 100 % Logisim.
-9. Fases 7–10: testeo modular/general, `tests/` propios, informe y entrega.
+7. ~~Fase 6: integración de la `CPU` con los seis subcircuitos.~~ Completada y verificada el 2026-11-18: 7/7 programas OK.
+8. ~~Fase 6 checkpoint: integración VHDL.~~ No aplica: el `.circ` no tiene entidades VHDL. Los `.vhd` se validan con GHDL; la cosimulación con Questa sigue diferida.
+9. Fases 7–10: testeo modular ampliado, `tests/` propios, informe y entrega.
 
 ---
 
@@ -442,16 +469,19 @@ Formato sugerido por commit:
 ```powershell
 # Variables de entorno (PowerShell)
 $env:LOGISIM_JAR = "C:\Program Files\logisim-evolution\app\logisim-evolution-5.0.0-all.jar"
-$env:MARS_JAR    = "D:\EscuelaLuisi\AC\Mars4_5.jar"
+$env:MARS_JAR    = "D:\EscuelaLuisi\AC\Mars4_5.jar"   # ruta real; NO C:\Users\enrique\Herramientas\Mars4_5.jar
 
 # Ensamblar un programa
 python tools/assemble.py programs/hello.asm
 
-# Ejecutar batería de pruebas completa
+# Ejecutar batería de pruebas completa (7/7 correctos)
 python tools/run_tests.py
 
 # Ejecutar un solo programa
 python tools/run_tests.py programs/memory.asm
+
+# Ejecutar la placa directamente con una imagen .hex ya generada (sin MARS ni Questa)
+java "--class-path" $env:LOGISIM_JAR tools/Run.java circuit/smips.circ 60000 10 images/hello.hex
 
 # Validar VHDL con GHDL (no sustituye a Questa)
 D:\EscuelaLuisi\AC\GHDL\bin\ghdl.exe -a --std=02 --warn-all register_file.vhd
@@ -463,7 +493,8 @@ bash open.sh
 # Generador de circuitos: prueba de humo y verificador
 python tools/smoke_circuitlib.py
 python tools/gen_datapath.py      # regenera ALU + Datapath en circuit/smips.circ
-python tools/check_circuit.py circuit/smips.circ --base
+python tools/check_circuit.py circuit/smips.circ            # completa: 13 avisos, 0 errores
+python tools/check_circuit.py circuit/smips.circ --base    # solo R2, rejilla y túneles
 
 # Circuito de prueba: generar y simular su tabla de verdad en Logisim
 python tools/gen_prueba.py
