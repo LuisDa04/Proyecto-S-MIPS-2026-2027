@@ -889,7 +889,7 @@
       <a name="font" val="SansSerif bold 20"/>
       <a name="text" val="CPU S-MIPS: implementar aqui"/>
     </comp>
-    <comp lib="7" loc="(500,65)" name="Text">
+    <comp lib="7" loc="(500,70)" name="Text">
       <a name="text" val="No cambiar nombres, anchos ni sentido de los pines: la placa depende de ellos."/>
     </comp>
     <comp loc="(1290,690)" name="Instruction_Decoder"/>
@@ -971,6 +971,18 @@
     <wire from="(970,1720)" to="(1140,1720)"/>
     <wire from="(980,1760)" to="(1170,1760)"/>
     <wire from="(990,1420)" to="(990,1480)"/>
+    <comp lib="7" loc="(1290,660)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="DECODIFICADOR"/>
+    </comp>
+    <comp lib="7" loc="(690,1070)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="CONTROL / FSM"/>
+    </comp>
+    <comp lib="7" loc="(1660,1070)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="DATAPATH"/>
+    </comp>
   </circuit>
   <circuit name="Memory">
     <a name="appearance" val="custom"/>
@@ -1221,7 +1233,7 @@
     <a name="circuitnamedboxfixedsize" val="true"/>
     <a name="simulationFrequency" val="1.0"/>
     <appear>
-      <rect fill="#ff0e2c" fill-opacity="0.353" height="272" rx="10" ry="10" stroke="#000000" width="1191" x="310" y="139"/>
+      <rect fill="none" fill-opacity="0.353" height="272" rx="10" ry="10" stroke="#000000" width="1191" x="310" y="139"/>
       <text dominant-baseline="central" font-family="SansSerif" font-size="49" font-weight="bold" text-anchor="middle" x="883" y="263">Instruction Decoder</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="18" text-anchor="middle" x="343" y="211">Op</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="20" text-anchor="middle" x="352" y="328">Funct</text>
@@ -2238,31 +2250,31 @@
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="INPUTS"/>
     </comp>
-    <comp lib="7" loc="(1310,65)" name="Text">
+    <comp lib="7" loc="(1310,70)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="OUTPUTS"/>
     </comp>
-    <comp lib="7" loc="(610,955)" name="Text">
+    <comp lib="7" loc="(610,960)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="FLOW CONTROL"/>
     </comp>
-    <comp lib="7" loc="(645,150)" name="Text">
+    <comp lib="7" loc="(650,150)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="I-TYPE-ARITMETHIC/LOGIC"/>
     </comp>
-    <comp lib="7" loc="(645,65)" name="Text">
+    <comp lib="7" loc="(650,70)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="Combinatoric Logic"/>
     </comp>
-    <comp lib="7" loc="(655,585)" name="Text">
+    <comp lib="7" loc="(660,590)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="MEMORY OPERATIONS"/>
     </comp>
-    <comp lib="7" loc="(680,1295)" name="Text">
+    <comp lib="7" loc="(680,1300)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="Type -R"/>
     </comp>
-    <comp lib="7" loc="(830,2025)" name="Text">
+    <comp lib="7" loc="(830,2030)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="ILLEGAL OUT"/>
     </comp>
@@ -2280,7 +2292,7 @@ IsSrl (OP = 00) AND (Funct = 02)
 IsJr (OP = 00) AND (Funct = 08)
 IsSysCall (OP = 00) AND (Funct = 0C)</a>
     </comp>
-    <comp lib="7" loc="(950,995)" name="Text">
+    <comp lib="7" loc="(950,1000)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text">Ecuación
 IsBeq OP = 04
@@ -2298,7 +2310,7 @@ IsAndi OP = 0C
 IsOri OP = 0D
 IsLui OP = 0F</a>
     </comp>
-    <comp lib="7" loc="(960,625)" name="Text">
+    <comp lib="7" loc="(960,630)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text"> Ecuación
 IsLw OP = 23
@@ -2565,6 +2577,14 @@ IsSb OP = 28</a>
     <wire from="(910,2130)" to="(920,2130)"/>
     <wire from="(910,2190)" to="(910,2220)"/>
     <wire from="(910,2190)" to="(920,2190)"/>
+    <comp lib="7" loc="(150,90)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="OPCODE / FUNCT"/>
+    </comp>
+    <comp lib="7" loc="(1330,100)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="TYPE / CONTROL"/>
+    </comp>
   </circuit>
   <circuit name="Control_Unit">
     <a name="appearance" val="custom"/>
@@ -2572,7 +2592,7 @@ IsSb OP = 28</a>
     <a name="circuitnamedboxfixedsize" val="true"/>
     <a name="simulationFrequency" val="1.0"/>
     <appear>
-      <rect fill-opacity="0.729" height="562" stroke="#000000" width="550" x="50" y="39"/>
+      <rect fill="none" fill-opacity="0.729" height="562" stroke="#000000" width="550" x="50" y="39"/>
       <polyline fill="none" points="51,43 66,50 51,60" stroke="#000000" stroke-width="4"/>
       <text dominant-baseline="central" font-family="SansSerif" font-size="40" font-weight="bold" text-anchor="middle" x="328" y="162">CONTROL UNIT</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="14" text-anchor="middle" x="83" y="52">CLK</text>
@@ -3862,15 +3882,15 @@ IsSb OP = 28</a>
       <a name="appearance" val="logisim_evolution"/>
       <a name="width" val="4"/>
     </comp>
-    <comp lib="7" loc="(115,50)" name="Text">
-      <a name="font" val="SansSerif bold 22"/>
-      <a name="text" val="INPUTS"/>
-    </comp>
     <comp lib="7" loc="(1170,730)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="NEXT STATE LOGIC"/>
     </comp>
-    <comp lib="7" loc="(1470,815)" name="Text">
+    <comp lib="7" loc="(120,50)" name="Text">
+      <a name="font" val="SansSerif bold 22"/>
+      <a name="text" val="INPUTS"/>
+    </comp>
+    <comp lib="7" loc="(1470,820)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text">Estado actual Condición Próximo estado
 FETCH Siempre DECODE
@@ -3898,7 +3918,7 @@ SYSCALL Ninguno de los anteriores FETCH
 PRINT Siempre FETCH
 HALT Siempre HALT</a>
     </comp>
-    <comp lib="7" loc="(1575,95)" name="Text">
+    <comp lib="7" loc="(1580,100)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text">Estado
 IsS0 (0) FETCH
@@ -3918,11 +3938,11 @@ IsS13 (13) PRINT
 IsS14 (14) HALT
 IsS15 (15) Sin utilizar</a>
     </comp>
-    <comp lib="7" loc="(2075,50)" name="Text">
+    <comp lib="7" loc="(2080,50)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="ALU_CONTROL"/>
     </comp>
-    <comp lib="7" loc="(235,860)" name="Text">
+    <comp lib="7" loc="(240,860)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="StateReg"/>
     </comp>
@@ -3930,7 +3950,7 @@ IsS15 (15) Sin utilizar</a>
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="OUTPUTS"/>
     </comp>
-    <comp lib="7" loc="(950,55)" name="Text">
+    <comp lib="7" loc="(950,60)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="OUTPUT LOGIC"/>
     </comp>
@@ -4182,6 +4202,14 @@ IsS15 (15) Sin utilizar</a>
     <wire from="(950,1000)" to="(950,1010)"/>
     <wire from="(950,1010)" to="(1110,1010)"/>
     <wire from="(990,1480)" to="(990,1500)"/>
+    <comp lib="7" loc="(150,90)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="RELOJ / ESTADO"/>
+    </comp>
+    <comp lib="7" loc="(380,90)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="SEÑALES DE CONTROL"/>
+    </comp>
   </circuit>
   <circuit name="Branch_Control">
     <a name="appearance" val="custom"/>
@@ -4189,7 +4217,7 @@ IsS15 (15) Sin utilizar</a>
     <a name="circuitnamedboxfixedsize" val="true"/>
     <a name="simulationFrequency" val="1.0"/>
     <appear>
-      <rect fill="#32ff51" fill-opacity="0.353" height="121" stroke="#000000" width="220" x="50" y="50"/>
+      <rect fill="none" fill-opacity="0.353" height="121" stroke="#000000" width="220" x="50" y="50"/>
       <text dominant-baseline="central" font-family="SansSerif" font-size="20" font-weight="bold" text-anchor="middle" x="157" y="64">Branch Control</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="14" text-anchor="middle" x="227" y="109">PCEnable</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="14" text-anchor="middle" x="68" y="100">bne</text>
@@ -4288,15 +4316,15 @@ IsS15 (15) Sin utilizar</a>
     <comp lib="1" loc="(910,170)" name="OR Gate">
       <a name="size" val="70"/>
     </comp>
-    <comp lib="7" loc="(145,70)" name="Text">
+    <comp lib="7" loc="(151,72)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="INPUTS"/>
     </comp>
-    <comp lib="7" loc="(280,70)" name="Text">
+    <comp lib="7" loc="(284,72)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="OUTPUTS"/>
     </comp>
-    <comp lib="7" loc="(675,75)" name="Text">
+    <comp lib="7" loc="(681,75)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="Combinational Logic"/>
     </comp>
@@ -4341,7 +4369,7 @@ IsS15 (15) Sin utilizar</a>
     <a name="clabelfont" val="SansSerif plain 12"/>
     <a name="simulationFrequency" val="1.0"/>
     <appear>
-      <rect fill="#ff8946" fill-opacity="0.506" height="352" stroke="#000000" width="730" x="50" y="30"/>
+      <rect fill="none" fill-opacity="0.506" height="352" stroke="#000000" width="730" x="50" y="30"/>
       <polyline fill="none" points="54,32 69,40 54,50" stroke="#000000" stroke-width="4"/>
       <text dominant-baseline="central" font-family="SansSerif" font-size="14" text-anchor="middle" x="86" y="41">CLK</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="14" text-anchor="middle" x="71" y="80">RST</text>
@@ -5991,39 +6019,39 @@ IsS15 (15) Sin utilizar</a>
       <a name="label" val="B"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="7" loc="(1385,85)" name="Text">
+    <comp lib="7" loc="(1390,90)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="Register File"/>
     </comp>
-    <comp lib="7" loc="(1400,385)" name="Text">
+    <comp lib="7" loc="(1400,390)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="ALU Logic"/>
     </comp>
-    <comp lib="7" loc="(160,85)" name="Text">
+    <comp lib="7" loc="(160,90)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="INPUTS"/>
     </comp>
-    <comp lib="7" loc="(170,125)" name="Text">
+    <comp lib="7" loc="(170,130)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="DATA"/>
     </comp>
-    <comp lib="7" loc="(185,305)" name="Text">
-      <a name="font" val="SansSerif bold 22"/>
-      <a name="text" val="Control Signals"/>
-    </comp>
-    <comp lib="7" loc="(1850,625)" name="Text">
+    <comp lib="7" loc="(1850,630)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="Splits"/>
     </comp>
-    <comp lib="7" loc="(1870,85)" name="Text">
+    <comp lib="7" loc="(1870,90)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="OUTPUTS"/>
     </comp>
-    <comp lib="7" loc="(700,85)" name="Text">
+    <comp lib="7" loc="(190,310)" name="Text">
+      <a name="font" val="SansSerif bold 22"/>
+      <a name="text" val="Control Signals"/>
+    </comp>
+    <comp lib="7" loc="(700,90)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="Additional Registers"/>
     </comp>
-    <comp lib="7" loc="(805,625)" name="Text">
+    <comp lib="7" loc="(810,630)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="Mux helpers"/>
     </comp>
@@ -6254,6 +6282,22 @@ IsS15 (15) Sin utilizar</a>
     <wire from="(960,1160)" to="(980,1160)"/>
     <wire from="(970,1180)" to="(970,1200)"/>
     <wire from="(970,1180)" to="(980,1180)"/>
+    <comp lib="7" loc="(180,160)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="PC / IR"/>
+    </comp>
+    <comp lib="7" loc="(1410,420)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="REGISTROS + ALU"/>
+    </comp>
+    <comp lib="7" loc="(1500,140)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="BANCO REGISTROS"/>
+    </comp>
+    <comp lib="7" loc="(1500,460)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="ALU / OPS"/>
+    </comp>
   </circuit>
   <circuit name="Register_File">
     <a name="appearance" val="custom"/>
@@ -6261,7 +6305,7 @@ IsS15 (15) Sin utilizar</a>
     <a name="circuitnamedboxfixedsize" val="true"/>
     <a name="simulationFrequency" val="1.0"/>
     <appear>
-      <rect fill="#e584ff" fill-opacity="0.624" height="151" stroke="#000000" width="199" x="50" y="50"/>
+      <rect fill="none" fill-opacity="0.624" height="151" stroke="#000000" width="199" x="50" y="50"/>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="81" y="59">clk</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="66" y="80">rst</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="75" y="157">wa/wr</text>
@@ -7696,15 +7740,15 @@ IsS15 (15) Sin utilizar</a>
       <a name="label" val="R29"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="7" loc="(1405,750)" name="Text">
+    <comp lib="7" loc="(1410,750)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="Output Selector"/>
     </comp>
-    <comp lib="7" loc="(1435,60)" name="Text">
+    <comp lib="7" loc="(1440,60)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="Register Selector"/>
     </comp>
-    <comp lib="7" loc="(150,485)" name="Text">
+    <comp lib="7" loc="(150,490)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="OUTPUTS"/>
     </comp>
@@ -7712,7 +7756,7 @@ IsS15 (15) Sin utilizar</a>
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="INPUTS"/>
     </comp>
-    <comp lib="7" loc="(635,60)" name="Text">
+    <comp lib="7" loc="(640,60)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="Register Bank"/>
     </comp>
@@ -8063,6 +8107,14 @@ IsS15 (15) Sin utilizar</a>
     <wire from="(930,590)" to="(970,590)"/>
     <wire from="(930,740)" to="(970,740)"/>
     <wire from="(930,890)" to="(970,890)"/>
+    <comp lib="7" loc="(170,90)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="LECTURA A / B"/>
+    </comp>
+    <comp lib="7" loc="(660,90)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="BANCO 32x32"/>
+    </comp>
   </circuit>
   <circuit name="ALU">
     <a name="appearance" val="custom"/>
@@ -8070,7 +8122,7 @@ IsS15 (15) Sin utilizar</a>
     <a name="clabelfont" val="SansSerif plain 12"/>
     <a name="simulationFrequency" val="1.0"/>
     <appear>
-      <rect fill="#a0e1ff" fill-opacity="0.506" height="110" stroke="#000000" width="122" x="120" y="62"/>
+      <rect fill="none" fill-opacity="0.506" height="110" stroke="#000000" width="122" x="120" y="62"/>
       <text dominant-baseline="central" font-family="SansSerif" font-size="18" font-weight="bold" text-anchor="middle" x="181" y="116">ALU</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="10" text-anchor="middle" x="143" y="71">CLK</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="10" text-anchor="middle" x="140" y="88">Op</text>
@@ -8385,43 +8437,43 @@ IsS15 (15) Sin utilizar</a>
     <comp lib="3" loc="(990,470)" name="Comparator">
       <a name="width" val="32"/>
     </comp>
-    <comp lib="7" loc="(470,45)" name="Text">
+    <comp lib="7" loc="(470,50)" name="Text">
       <a name="font" val="SansSerif plain 22"/>
       <a name="text" val="OUTPUTS"/>
     </comp>
-    <comp lib="7" loc="(55,575)" name="Text">
-      <a name="font" val="SansSerif plain 16"/>
-      <a name="text" val="011"/>
-    </comp>
-    <comp lib="7" loc="(55,655)" name="Text">
-      <a name="font" val="SansSerif plain 16"/>
-      <a name="text" val="100"/>
-    </comp>
-    <comp lib="7" loc="(55,730)" name="Text">
-      <a name="font" val="SansSerif plain 16"/>
-      <a name="text" val="101"/>
-    </comp>
-    <comp lib="7" loc="(55,805)" name="Text">
-      <a name="font" val="SansSerif plain 16"/>
-      <a name="text" val="110"/>
-    </comp>
-    <comp lib="7" loc="(60,335)" name="Text">
+    <comp lib="7" loc="(60,340)" name="Text">
       <a name="font" val="SansSerif plain 16"/>
       <a name="text" val="000"/>
     </comp>
-    <comp lib="7" loc="(60,415)" name="Text">
+    <comp lib="7" loc="(60,420)" name="Text">
       <a name="font" val="SansSerif plain 16"/>
       <a name="text" val="001"/>
     </comp>
-    <comp lib="7" loc="(60,495)" name="Text">
+    <comp lib="7" loc="(60,500)" name="Text">
       <a name="font" val="SansSerif plain 16"/>
       <a name="text" val="010"/>
     </comp>
-    <comp lib="7" loc="(835,360)" name="Text">
+    <comp lib="7" loc="(60,580)" name="Text">
+      <a name="font" val="SansSerif plain 16"/>
+      <a name="text" val="011"/>
+    </comp>
+    <comp lib="7" loc="(60,660)" name="Text">
+      <a name="font" val="SansSerif plain 16"/>
+      <a name="text" val="100"/>
+    </comp>
+    <comp lib="7" loc="(60,730)" name="Text">
+      <a name="font" val="SansSerif plain 16"/>
+      <a name="text" val="101"/>
+    </comp>
+    <comp lib="7" loc="(60,810)" name="Text">
+      <a name="font" val="SansSerif plain 16"/>
+      <a name="text" val="110"/>
+    </comp>
+    <comp lib="7" loc="(840,360)" name="Text">
       <a name="font" val="SansSerif bold 22"/>
       <a name="text" val="COMBINATIONAL LOGIC"/>
     </comp>
-    <comp lib="7" loc="(85,45)" name="Text">
+    <comp lib="7" loc="(90,50)" name="Text">
       <a name="font" val="SansSerif plain 22"/>
       <a name="text" val="INPUTS"/>
     </comp>
@@ -8549,5 +8601,13 @@ IsS15 (15) Sin utilizar</a>
     <wire from="(910,520)" to="(950,520)"/>
     <wire from="(940,460)" to="(950,460)"/>
     <wire from="(990,470)" to="(1010,470)"/>
+    <comp lib="7" loc="(110,80)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="OPS 000-110"/>
+    </comp>
+    <comp lib="7" loc="(490,80)" name="Text">
+      <a name="font" val="SansSerif plain 12"/>
+      <a name="text" val="RESULTADO / ZERO"/>
+    </comp>
   </circuit>
 </project>
