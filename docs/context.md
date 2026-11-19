@@ -11,6 +11,30 @@ Registro de contexto y progreso. Debe actualizarse en cada commit con:
 
 ---
 
+## Actualización verificada (2026-11-18)
+
+**La `CPU` está cableada y funciona.** La conclusión anterior de que estaba "sin cablear" era un artefacto del inspector MCP (`circuit_inspect` no resuelve conexiones por túnel), no un defecto del circuito. El XML de `CPU` (`circuit/smips.circ:315-974`) contiene 132 túneles, 75 cables y las cuatro instancias de subcircuitos (`Instruction_Decoder`, `Datapath`, `Branch_Control`, `Control_Unit`).
+
+Evidencia real con Logisim-evolution 5.0.0:
+
+| Programa | Resultado | Ciclos |
+|---|---|---:|
+| `programs/arithmetic.asm` | OK (`HALT=1`, TTY = MARS) | 6475 |
+| `programs/array_sum.asm` | OK (`HALT=1`, TTY = MARS) | 890 |
+| `programs/branches.asm` | OK (`HALT=1`, TTY = MARS) | 909 |
+| `programs/gcd.asm` | OK (`HALT=1`, TTY = MARS) | 2752 |
+| `programs/hello.asm` | OK (`HALT=1`, TTY = MARS) | 295 |
+| `programs/memory.asm` | OK (`HALT=1`, TTY = MARS) | 4934 |
+| `programs/multiply.asm` | OK (`HALT=1`, TTY = MARS) | 1911 |
+
+- `python tools/run_tests.py` con `$env:MARS_JAR = 'D:\EscuelaLuisi\AC\Mars4_5.jar'` → **7/7 correctos**.
+- `python tools/check_circuit.py circuit/smips.circ` → `OK: 13 aviso(s), sin errores` (túneles de un solo uso).
+- El `.circ` **no contiene entidades VHDL**, así que simular la placa no requiere Questa. Questa solo hace falta para la cosimulación de los archivos `.vhd`.
+- La variable `MARS_JAR` de la sesión estaba apuntando a `C:\Users\enrique\Herramientas\Mars4_5.jar` (ruta inexistente). La ruta real es `D:\EscuelaLuisi\AC\Mars4_5.jar`.
+- **Precaución:** `circuit_simulate`, `circuit_truth_table` y `circuit_lint` del MCP `logisim` producen falsos positivos en este diseño (no resuelven túneles y desconocen la geometría de `RAM`/`TTY`). La evidencia funcional válida es `tools/Run.java` y `tools/run_tests.py`.
+
+---
+
 ## Estado Actual del Repositorio (base)
 
 | Elemento | Estado | Observaciones |
